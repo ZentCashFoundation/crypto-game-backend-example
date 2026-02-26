@@ -42,6 +42,7 @@ It provides a minimal but structured backend architecture that you can expand in
 
 # 📂 Project Structure
 
+```bash
 crypto-games-backend-example/
 │
 ├── server.js
@@ -56,6 +57,8 @@ crypto-games-backend-example/
     ├── auth.js
     ├── payment.js
     └── game.js
+
+```
 
 ---
 
