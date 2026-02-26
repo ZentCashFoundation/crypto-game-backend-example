@@ -134,5 +134,92 @@ WALLET_RPC_PASSWORD=your_wallet_api_password
 4️⃣ Run server
 
 ```bash
-
+npm run dev
 ```
+
+# 🔄 Example Flow
+
+- User registers
+
+- Backend generates unique Payment ID
+
+- User sends crypto payment
+
+- Backend verifies transaction
+
+- Internal balance increases
+
+- User starts game session
+
+- Balance decreases
+
+# 🛡 Security Notes
+
+This example includes:
+
+- Password hashing
+
+- JWT authentication
+
+- Double-payment protection
+
+- Atomic balance deduction
+
+- Transaction logging
+
+However, for real production use you should:
+
+- Add database transactions (BEGIN / COMMIT)
+
+- Add rate limiting
+
+- Add input validation (Joi/Zod)
+
+- Add request logging
+
+- Add monitoring
+
+- Add proper wallet confirmation checks
+
+- Add withdrawal validation logic
+
+# 📈 Ideas to Expand This Project
+
+- Add withdrawals
+
+- Add leaderboard system
+
+- Add admin dashboard
+
+- Add multiple games
+
+- Add WebSocket real-time balance updates
+
+- Convert into microservices
+
+- Add Docker support
+
+- Add CI/CD pipeline
+
+# 🎯 Goal
+
+This project is not meant to be finished.
+
+It is meant to be built upon.
+
+ Take it.
+ Break it.
+ Improve it.
+ Scale it.
+
+# 📜 License
+
+MIT License
+
+You are free to use, modify, and distribute this project.
+
+# 🤝 Contributing
+
+Pull requests are welcome.
+
+If you build something cool on top of this, share it!
