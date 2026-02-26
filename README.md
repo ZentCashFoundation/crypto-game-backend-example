@@ -104,3 +104,35 @@ crypto-games-backend-example/
 ```bash
 git clone https://github.com/ZentCashFoundation/crypto-game-backend-example.git
 cd crypto-game-backend-example
+
+```
+
+2️⃣ Install dependencies
+```bash
+npm install
+```
+
+3️⃣ Configure environment
+
+Create a .env file:
+
+```bash
+PORT=3000
+
+DB_HOST=localhost
+DB_USER=root
+DB_PASSWORD=yourpassword
+DB_NAME=crypto_game
+
+JWT_SECRET=super_secret_key
+
+WALLET_API_URL=http://127.0.0.1:21699
+WALLET_RPC_PASSWORD=your_wallet_api_password
+```
+
+
+4️⃣ Run server
+
+```bash
+
+```
