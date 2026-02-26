@@ -107,12 +107,12 @@ cd crypto-game-backend-example
 
 ```
 
-2️⃣ Install dependencies
+## 2️⃣ Install dependencies
 ```bash
 npm install
 ```
 
-3️⃣ Configure environment
+## 3️⃣ Configure environment
 
 Create a .env file:
 
@@ -131,7 +131,7 @@ WALLET_RPC_PASSWORD=your_wallet_api_password
 ```
 
 
-4️⃣ Run server
+## 4️⃣ Run server
 
 ```bash
 npm run dev
