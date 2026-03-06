@@ -4,7 +4,7 @@ const auth = require("../middleware/auth");
 const pool = require("../db");
 
 router.post("/play", auth, async (req, res) => {
-  const cost = 1;
+  const cost = 10;
 
   try {
     const [update] = await pool.query(
@@ -13,7 +13,7 @@ router.post("/play", auth, async (req, res) => {
     );
 
     if (!update.affectedRows)
-      return res.status(400).json({ error: "Saldo insuficiente" });
+      return res.status(400).json({ error: "Insufficient balance" });
 
     const [session] = await pool.query(
       "INSERT INTO game_sessions (user_id, cost) VALUES (?, ?)",
@@ -26,12 +26,12 @@ router.post("/play", auth, async (req, res) => {
     );
 
     res.json({
-      message: "Partida iniciada",
+      message: "Game started",
       sessionId: session.insertId,
     });
   } catch (err) {
     console.error(err);
-    res.status(500).json({ error: "Error iniciando partida" });
+    res.status(500).json({ error: "Error starting game" });
   }
 });
 
