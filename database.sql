@@ -27,9 +27,9 @@ CREATE TABLE IF NOT EXISTS payment_requests (
 CREATE TABLE IF NOT EXISTS processed_payments (
   id INT AUTO_INCREMENT PRIMARY KEY,
   user_id INT NOT NULL,
-  payment_id CHAR(64) NOT NULL UNIQUE,
+  payment_id CHAR(64) NOT NULL,
   amount DECIMAL(18,8) NOT NULL,
-  tx_hash VARCHAR(128) NOT NULL,
+  tx_hash VARCHAR(128) NOT NULL UNIQUE,
   processed_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
   FOREIGN KEY(user_id) REFERENCES users(id)
 );
