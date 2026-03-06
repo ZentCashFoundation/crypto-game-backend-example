@@ -11,7 +11,7 @@ router.post("/register", async (req, res) => {
   const { email, password, expectedAmount } = req.body;
 
   if (!email || !password)
-    return res.status(400).json({ error: "Faltan datos" });
+    return res.status(400).json({ error: "Data is missing" });
 
   try {
     const [existing] = await pool.query(
@@ -20,7 +20,7 @@ router.post("/register", async (req, res) => {
     );
 
     if (existing.length)
-      return res.status(400).json({ error: "Usuario ya existe" });
+      return res.status(400).json({ error: "User already exists" });
 
     const hashedPassword = await bcrypt.hash(password, 10);
 
@@ -43,12 +43,14 @@ router.post("/register", async (req, res) => {
     );
 
     res.json({
-      message: "Usuario creado",
+      message: "User created",
+      address: process.env.ADDRESS,
       paymentId,
     });
+    console.log("User created. Email: " + email)
   } catch (err) {
     console.error(err);
-    res.status(500).json({ error: "Error interno" });
+    res.status(500).json({ error: "Internal error" });
   }
 });
 
@@ -63,13 +65,13 @@ router.post("/login", async (req, res) => {
     );
 
     if (!users.length)
-      return res.status(400).json({ error: "Usuario no encontrado" });
+      return res.status(400).json({ error: "User not found" });
 
     const user = users[0];
     const valid = await bcrypt.compare(password, user.password);
 
     if (!valid)
-      return res.status(400).json({ error: "Contraseña incorrecta" });
+      return res.status(400).json({ error: "Incorrect password" });
 
     const token = jwt.sign(
       { id: user.id, email: user.email },
@@ -77,14 +79,17 @@ router.post("/login", async (req, res) => {
       { expiresIn: "2h" }
     );
 
+    console.log("Login User. Email: " + email)
+
     res.json({
       token,
       balance: user.balance,
+      address: process.env.ADDRESS,
       paymentId: user.payment_id,
     });
   } catch (err) {
     console.error(err);
-    res.status(500).json({ error: "Error interno" });
+    res.status(500).json({ error: "Internal error" });
   }
 });
 
