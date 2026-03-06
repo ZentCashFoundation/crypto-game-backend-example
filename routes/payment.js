@@ -7,73 +7,81 @@ require("dotenv").config();
 
 router.get("/check", auth, async (req, res) => {
   try {
+
     const [requests] = await pool.query(
-      "SELECT * FROM payment_requests WHERE user_id = ? AND status = 'pending'",
+      "SELECT * FROM payment_requests WHERE user_id = ?",
       [req.user.id]
     );
 
     if (!requests.length)
-      return res.json({ message: "No hay pagos pendientes" });
+      return res.json({ message: "No PaymentIDs registered." });
 
     const request = requests[0];
 
     const response = await axios.get(
-      `${process.env.WALLET_API_URL}/transactions/incoming`,
+      `${process.env.WALLET_API_URL}/transactions/paymentid/${request.payment_id}`,
       {
         headers: {
           "X-API-KEY": process.env.WALLET_RPC_PASSWORD,
+          "Content-Type": "application/json",
+          accept: "application/json",
         },
       }
     );
 
     const transactions = response.data.transactions || [];
 
-    const tx = transactions.find(
-      (t) =>
-        t.payment_id === request.payment_id &&
-        t.amount / 1e12 >= request.expected_amount
-    );
+    let credited = 0;
 
-    if (!tx)
-      return res.json({ message: "Pago no encontrado aún" });
+    for (const tx of transactions) {
 
-    const [processed] = await pool.query(
-      "SELECT id FROM processed_payments WHERE payment_id = ?",
-      [request.payment_id]
-    );
+      for (const transfer of tx.transfers) {
 
-    if (processed.length)
-      return res.json({ message: "Pago ya procesado" });
+        if (transfer.amount <= 0) continue;
 
-    const amountZent = tx.amount / 1e12;
+        const amountZent = transfer.amount / 100;
 
-    await pool.query(
-      "UPDATE users SET balance = balance + ? WHERE id = ?",
-      [amountZent, req.user.id]
-    );
+        const [exists] = await pool.query(
+          "SELECT id FROM processed_payments WHERE tx_hash = ?",
+          [tx.hash]
+        );
 
-    await pool.query(
-      "INSERT INTO processed_payments (user_id, payment_id, amount, tx_hash) VALUES (?, ?, ?, ?)",
-      [req.user.id, request.payment_id, amountZent, tx.tx_hash]
-    );
+        if (exists.length) continue;
 
-    await pool.query(
-      "UPDATE payment_requests SET status = 'confirmed' WHERE id = ?",
-      [request.id]
-    );
+        await pool.query(
+          "UPDATE users SET balance = balance + ? WHERE id = ?",
+          [amountZent, req.user.id]
+        );
 
-    await pool.query(
-      "INSERT INTO transaction_history (user_id, type, amount, reference_id) VALUES (?, 'deposit', ?, ?)",
-      [req.user.id, amountZent, request.payment_id]
-    );
+        credited += amountZent;
+
+        await pool.query(
+          "INSERT INTO processed_payments (user_id, payment_id, amount, tx_hash) VALUES (?, ?, ?, ?)",
+          [req.user.id, request.payment_id, amountZent, tx.hash]
+        );
+
+        await pool.query(
+          "INSERT INTO transaction_history (user_id, type, amount, reference_id) VALUES (?, 'deposit', ?, ?)",
+          [req.user.id, amountZent, tx.hash]
+        );
+
+      }
+
+    }
+
+    if (credited === 0)
+      return res.json({ message: "There are no new payments." });
 
     res.json({
-      message: "Pago confirmado",
-      amount: amountZent,
+      message: "Payments credited.",
+      amount: credited
     });
+
   } catch (err) {
+
     console.error(err);
-    res.status(500).json({ error: "Error verificando pago" });
+    res.status(500).json({ error: "Error verifying payment." });
+
   }
 });
 
