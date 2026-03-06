@@ -1,6 +1,6 @@
 {
   "name": "crypto-game-backend-example",
-  "version": "0.0.1",
+  "version": "0.0.2",
   "description": "Example of a basic backend for a gaming platform to integrate Zent Cash Wallet-API.",
   "main": "server.js",
   "type": "commonjs",
