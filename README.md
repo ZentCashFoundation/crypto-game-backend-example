@@ -1,225 +1,118 @@
-# 🎮 Crypto Game Backend Example
+# <img src="https://raw.githubusercontent.com/swagger-api/swagger.io/wordpress/images/assets/SWU-logo-clr.png" width="300">
 
-A simple educational Node.js backend demonstrating how to build a crypto-powered gaming backend.
+[![NPM version](https://badge.fury.io/js/swagger-ui.svg)](http://badge.fury.io/js/swagger-ui)
+[![Build Status](https://jenkins.swagger.io/view/OSS%20-%20JavaScript/job/oss-swagger-ui-master/badge/icon?subject=jenkins%20build)](https://jenkins.swagger.io/view/OSS%20-%20JavaScript/job/oss-swagger-ui-master/)
+[![npm audit](https://jenkins.swagger.io/buildStatus/icon?job=oss-swagger-ui-security-audit&subject=npm%20audit)](https://jenkins.swagger.io/job/oss-swagger-ui-security-audit/lastBuild/console)
+[![total GitHub contributors](https://img.shields.io/github/contributors-anon/swagger-api/swagger-ui.svg)](https://github.com/swagger-api/swagger-ui/graphs/contributors)
 
-This project shows how to:
+[![monthly npm installs](https://img.shields.io/npm/dm/swagger-ui.svg?label=npm%20downloads)](https://www.npmjs.com/package/swagger-ui)
+![docker registry](https://img.shields.io/badge/docker-docker.swagger.io%2Fswaggerapi%2Fswagger--ui-blue)
+![monthly packagist installs](https://img.shields.io/packagist/dm/swagger-api/swagger-ui.svg?label=packagist%20installs)
+[![gzip size](https://img.shields.io/bundlephobia/minzip/swagger-ui.svg?label=gzip%20size)](https://bundlephobia.com/package/swagger-ui)
 
-- Register users
-- Generate secure 64-character hex Payment IDs
-- Verify incoming blockchain payments
-- Maintain an internal balance system
-- Prevent double-spending
-- Track game sessions
-- Log transaction history
+## Introduction
+[Swagger UI](https://swagger.io/tools/swagger-ui/) allows anyone — be it your development team or your end consumers — to visualize and interact with the API’s resources without having any of the implementation logic in place. It’s automatically generated from your OpenAPI (formerly known as Swagger) Specification, with the visual documentation making it easy for back end implementation and client side consumption.
 
-⚠️ This is an educational example, not production-ready code.
+## General
+**👉🏼 Want to score an easy open-source contribution?** Check out our [Good first issue](https://github.com/swagger-api/swagger-ui/issues?q=is%3Aissue+is%3Aopen+label%3A%22Good+first+issue%22) label.
 
----
+**🕰️ Looking for the older version of Swagger UI?** Refer to the [*2.x* branch](https://github.com/swagger-api/swagger-ui/tree/2.x).
 
-# 🚀 Purpose
 
-This repository is meant to inspire developers to build their own crypto-based games and payment systems.
+This repository publishes three different NPM modules:
 
-It provides a minimal but structured backend architecture that you can expand into:
+* [swagger-ui](https://www.npmjs.com/package/swagger-ui) is a traditional npm module intended for use in single-page applications that are capable of resolving dependencies (via Webpack, Browserify, etc.).
+* [swagger-ui-dist](https://www.npmjs.com/package/swagger-ui-dist) is a dependency-free module that includes everything you need to serve Swagger UI in a server-side project, or a single-page application that can't resolve npm module dependencies.
+* [swagger-ui-react](https://www.npmjs.com/package/swagger-ui-react) is Swagger UI packaged as a React component for use in React applications.
 
-- Full gaming platforms
-- Play-to-earn systems
-- Crypto deposit/withdraw systems
-- Microservices architectures
+We strongly suggest that you use `swagger-ui` instead of `swagger-ui-dist` if you're building a single-page application, since `swagger-ui-dist` is significantly larger.
 
----
+If you are looking for plain ol' HTML/JS/CSS, [download the latest release](https://github.com/swagger-api/swagger-ui/releases/latest) and copy the contents of the `/dist` folder to your server.
 
-# 🏗 Tech Stack
 
-- Node.js
-- Express
-- MySQL
-- JWT Authentication
-- bcrypt password hashing
-- Axios (wallet API integration)
+## Compatibility
+The OpenAPI Specification has undergone 5 revisions since initial creation in 2010.  Compatibility between Swagger UI and the OpenAPI Specification is as follows:
 
----
+| Swagger UI Version | Release Date | OpenAPI Spec compatibility                                  | Notes                                                                 |
+|--------------------|--------------|-------------------------------------------------------------|-----------------------------------------------------------------------|
+| 5.32.0             | 2026-02-27   | 2.0, 3.0.0, 3.0.1, 3.0.2, 3.0.3, 3.0.4, 3.1.0, 3.1.1, 3.1.2, 3.2.0 | [tag v5.32.0](https://github.com/swagger-api/swagger-ui/tree/v5.32.0) |
+| 5.19.0             | 2025-02-17   | 2.0, 3.0.0, 3.0.1, 3.0.2, 3.0.3, 3.0.4, 3.1.0, 3.1.1, 3.1.2 | [tag v5.19.0](https://github.com/swagger-api/swagger-ui/tree/v5.19.0) |
+| 5.0.0              | 2023-06-12   | 2.0, 3.0.0, 3.0.1, 3.0.2, 3.0.3, 3.1.0               | [tag v5.0.0](https://github.com/swagger-api/swagger-ui/tree/v5.0.0)   |
+| 4.0.0              | 2021-11-03   | 2.0, 3.0.0, 3.0.1, 3.0.2, 3.0.3                      | [tag v4.0.0](https://github.com/swagger-api/swagger-ui/tree/v4.0.0)   |
+| 3.18.3             | 2018-08-03   | 2.0, 3.0.0, 3.0.1, 3.0.2, 3.0.3                      | [tag v3.18.3](https://github.com/swagger-api/swagger-ui/tree/v3.18.3) |
+| 3.0.21             | 2017-07-26   | 2.0                                                  | [tag v3.0.21](https://github.com/swagger-api/swagger-ui/tree/v3.0.21) |
+| 2.2.10             | 2017-01-04   | 1.1, 1.2, 2.0                                        | [tag v2.2.10](https://github.com/swagger-api/swagger-ui/tree/v2.2.10) |
+| 2.1.5              | 2016-07-20   | 1.1, 1.2, 2.0                                        | [tag v2.1.5](https://github.com/swagger-api/swagger-ui/tree/v2.1.5)   |
+| 2.0.24             | 2014-09-12   | 1.1, 1.2                                             | [tag v2.0.24](https://github.com/swagger-api/swagger-ui/tree/v2.0.24) |
+| 1.0.13             | 2013-03-08   | 1.1, 1.2                                             | [tag v1.0.13](https://github.com/swagger-api/swagger-ui/tree/v1.0.13) |
+| 1.0.1              | 2011-10-11   | 1.0, 1.1                                             | [tag v1.0.1](https://github.com/swagger-api/swagger-ui/tree/v1.0.1)   |
 
-# 📂 Project Structure
+## Anonymized analytics
 
-```bash
-crypto-games-backend-example/
-│
-├── server.js
-├── db.js
-├── package.json
-├── .env
-│
-├── middleware/
-│   └── auth.js
-│
-└── routes/
-    ├── auth.js
-    ├── payment.js
-    └── game.js
+SwaggerUI uses [Scarf](https://scarf.sh/) to collect [anonymized installation analytics](https://github.com/scarf-sh/scarf-js?tab=readme-ov-file#as-a-user-of-a-package-using-scarf-js-what-information-does-scarf-js-send-about-me). These analytics help support the maintainers of this library and ONLY run during installation. To [opt out](https://github.com/scarf-sh/scarf-js?tab=readme-ov-file#as-a-user-of-a-package-using-scarf-js-how-can-i-opt-out-of-analytics), you can set the `scarfSettings.enabled` field to `false` in your project's `package.json`:
 
 ```
-
----
-
-# 🔐 Features
-
-## 1️⃣ User Registration
-
-- Secure password hashing
-- Automatic Payment ID generation (64 hex characters)
-- Internal balance initialization
-
-## 2️⃣ Payment Verification
-
-- Checks blockchain wallet API
-- Matches Payment ID
-- Prevents double processing
-- Updates internal balance
-- Stores transaction history
-
-## 3️⃣ Game Session System
-
-- Deducts balance safely
-- Prevents negative balance
-- Records session cost
-- Logs transaction history
-
----
-
-# 🗄 Database Tables
-
-- users
-- payment_requests
-- processed_payments
-- transaction_history
-- game_sessions
-
----
-
-# ⚙️ Installation
-
-## 1️⃣ Clone repository
-
-```bash
-git clone https://github.com/ZentCashFoundation/crypto-game-backend-example.git
-cd crypto-game-backend-example
-
+// package.json
+{
+  // ...
+  "scarfSettings": {
+    "enabled": false
+  }
+  // ...
+}
 ```
 
-## 2️⃣ Install dependencies
-```bash
-npm install
-```
+Alternatively, you can set the environment variable `SCARF_ANALYTICS` to `false` as part of the environment that installs your npm packages, e.g., `SCARF_ANALYTICS=false npm install`.
 
-## 3️⃣ Configure environment
+## Documentation
 
-Create a .env file:
+#### Usage
+- [Installation](https://github.com/swagger-api/swagger-ui/blob/HEAD/docs/usage/installation.md)
+- [Configuration](https://github.com/swagger-api/swagger-ui/blob/HEAD/docs/usage/configuration.md)
+- [CORS](https://github.com/swagger-api/swagger-ui/blob/HEAD/docs/usage/cors.md)
+- [OAuth2](https://github.com/swagger-api/swagger-ui/blob/HEAD/docs/usage/oauth2.md)
+- [Deep Linking](https://github.com/swagger-api/swagger-ui/blob/HEAD/docs/usage/deep-linking.md)
+- [Limitations](https://github.com/swagger-api/swagger-ui/blob/HEAD/docs/usage/limitations.md)
+- [Version detection](https://github.com/swagger-api/swagger-ui/blob/HEAD/docs/usage/version-detection.md)
 
-```bash
-PORT=3000
+#### Customization
+- [Overview](https://github.com/swagger-api/swagger-ui/blob/HEAD/docs/customization/overview.md)
+- [Plugin API](https://github.com/swagger-api/swagger-ui/blob/HEAD/docs/customization/plugin-api.md)
+- [Custom layout](https://github.com/swagger-api/swagger-ui/blob/HEAD/docs/customization/custom-layout.md)
 
-DB_HOST=localhost
-DB_USER=root
-DB_PASSWORD=yourpassword
-DB_NAME=crypto_game
+#### Development
+- [Setting up](https://github.com/swagger-api/swagger-ui/blob/HEAD/docs/development/setting-up.md)
+- [Scripts](https://github.com/swagger-api/swagger-ui/blob/HEAD/docs/development/scripts.md)
 
-JWT_SECRET=super_secret_key
+#### Contributing
+- [Contributing](https://github.com/swagger-api/.github/blob/HEAD/CONTRIBUTING.md)
 
-WALLET_API_URL=http://127.0.0.1:21699
-WALLET_RPC_PASSWORD=your_wallet_api_password
-```
+##### Integration Tests
 
+You will need JDK of version 7 or higher as instructed here
+https://nightwatchjs.org/guide/getting-started/installation.html#install-selenium-server
 
-## 4️⃣ Run server
+Integration tests can be run locally with `npm run e2e` - be sure you aren't running a dev server when testing!
 
-```bash
-npm run dev
-```
+### Browser support
+Swagger UI works in the latest versions of Chrome, Safari, Firefox, and Edge.
 
-# 🔄 Example Flow
+### Known Issues
 
-- User registers
+To help with the migration, here are the currently known issues with 3.X. This list will update regularly, and will not include features that were not implemented in previous versions.
 
-- Backend generates unique Payment ID
+- Only part of the parameters previously supported are available.
+- The JSON Form Editor is not implemented.
+- Support for `collectionFormat` is partial.
+- l10n (translations) is not implemented.
+- Relative path support for external files is not implemented.
 
-- User sends crypto payment
+## Security contact
 
-- Backend verifies transaction
+Please disclose any security-related issues or vulnerabilities by emailing [security@swagger.io](mailto:security@swagger.io), instead of using the public issue tracker.
 
-- Internal balance increases
+## License
 
-- User starts game session
-
-- Balance decreases
-
-# 🛡 Security Notes
-
-This example includes:
-
-- Password hashing
-
-- JWT authentication
-
-- Double-payment protection
-
-- Atomic balance deduction
-
-- Transaction logging
-
-However, for real production use you should:
-
-- Add database transactions (BEGIN / COMMIT)
-
-- Add rate limiting
-
-- Add input validation (Joi/Zod)
-
-- Add request logging
-
-- Add monitoring
-
-- Add proper wallet confirmation checks
-
-- Add withdrawal validation logic
-
-# 📈 Ideas to Expand This Project
-
-- Add withdrawals
-
-- Add leaderboard system
-
-- Add admin dashboard
-
-- Add multiple games
-
-- Add WebSocket real-time balance updates
-
-- Convert into microservices
-
-- Add Docker support
-
-- Add CI/CD pipeline
-
-# 🎯 Goal
-
-This project is not meant to be finished.
-
-It is meant to be built upon.
-
- Take it.
- Break it.
- Improve it.
- Scale it.
-
-# 📜 License
-
-MIT License
-
-You are free to use, modify, and distribute this project.
-
-# 🤝 Contributing
-
-Pull requests are welcome.
-
-If you build something cool on top of this, share it!
+SwaggerUI is licensed under [Apache 2.0 license](https://github.com/swagger-api/swagger-ui/blob/master/LICENSE).
+SwaggerUI comes with an explicit [NOTICE](https://github.com/swagger-api/swagger-ui/blob/master/NOTICE) file
+containing additional legal notices and information.
