@@ -194,6 +194,31 @@ paths:
         "500":
           description: Internal server error
 
+  /game/list:
+    get:
+      tags: [Game]
+      summary: List of games and prices
+      security:
+       - bearerAuth: []
+      responses:
+        "200":
+          description: List of games returned
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: object
+                  properties:
+                    name:
+                      type: string
+                      example: blackjack
+                    cost:
+                      type: number
+                      example: 10
+        "500":
+          description: Error fetching games          
+
 components:
   securitySchemes:
     bearerAuth:
