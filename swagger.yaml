@@ -167,33 +167,6 @@ paths:
         "500":
           description: Withdrawal failed
 
-  /game/play:
-    post:
-      tags: [Game]
-      summary: Start a game session and deduct balance
-      security:
-       - bearerAuth: []
-      responses:
-        "200":
-          description: Game session started
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  message:
-                    type: string
-                    example: Partida iniciada
-                  sessionId:
-                    type: integer
-                    example: 1
-        "400":
-          description: Insufficient balance
-        "401":
-          description: Unauthorized
-        "500":
-          description: Internal server error
-
   /game/list:
     get:
       tags: [Game]
@@ -217,7 +190,50 @@ paths:
                       type: number
                       example: 10
         "500":
-          description: Error fetching games          
+          description: Error fetching games            
+
+  /game/play:
+    post:
+      tags: [Game]
+      summary: Start a game session and deduct balance
+      security:
+       - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [game]
+              properties:
+                game:
+                  type: string
+                  example: blackjack
+      responses:
+        "200":
+          description: Game session started
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    example: Game started
+                  sessionId:
+                    type: integer
+                    example: 1
+                  cost:
+                    type: number
+                    example: 15
+        "400":
+          description: Insufficient balance
+        "401":
+          description: Unauthorized
+        "404":
+          description: Game not found
+        "500":
+          description: Error starting game        
 
 components:
   securitySchemes:
