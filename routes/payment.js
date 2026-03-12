@@ -9,18 +9,18 @@ require("dotenv").config();
 router.get("/check", auth, async (req, res) => {
   try {
 
-    const [requests] = await pool.query(
-      "SELECT * FROM payment_requests WHERE user_id = ?",
+    const [users] = await pool.query(
+      "SELECT payment_id FROM users WHERE id = ?",
       [req.user.id]
     );
 
-    if (!requests.length)
-      return res.json({ message: "No PaymentIDs registered." });
+    const paymentId = users[0].payment_id;
 
-    const request = requests[0];
+    if (!paymentId)
+      return res.status(400).json({ error: "Payment ID not configured" });
 
     const response = await axios.get(
-      `${process.env.WALLET_API_URL}/transactions/paymentid/${request.payment_id}`,
+      `${process.env.WALLET_API_URL}/transactions/paymentid/${paymentId}`,
       {
         headers: {
           "X-API-KEY": process.env.WALLET_RPC_PASSWORD,
@@ -58,7 +58,7 @@ router.get("/check", auth, async (req, res) => {
 
         await pool.query(
           "INSERT INTO processed_payments (user_id, payment_id, amount, tx_hash) VALUES (?, ?, ?, ?)",
-          [req.user.id, request.payment_id, amountZent, tx.hash]
+          [req.user.id, paymentId, amountZent, tx.hash]
         );
 
         await pool.query(
@@ -74,7 +74,7 @@ router.get("/check", auth, async (req, res) => {
       return res.json({ message: "There are no new payments." });
 
     if (credited > 0)
-      console.log(chalk.orange.bold("Deposit: " + credited + " - User ID: " + [req.user.id]))
+      console.log(chalk.yellow.bold(`Deposit: ${credited} - User ID: ${req.user.id}`));
 
     res.json({
       message: "Payments credited.",

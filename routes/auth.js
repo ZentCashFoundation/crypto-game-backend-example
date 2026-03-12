@@ -27,7 +27,7 @@ async function validateEmail(email) {
 
 // REGISTER
 router.post("/register", async (req, res) => {
-  const { email, password, expectedAmount } = req.body;
+  const { email, password} = req.body;
 
   if (!(await validateEmail(email))) {
     return res.status(400).json({ error: "Invalid email" });
@@ -58,11 +58,6 @@ router.post("/register", async (req, res) => {
     const [userResult] = await pool.query(
       "INSERT INTO users (email, password, payment_id, balance) VALUES (?, ?, ?, 0)",
       [email, hashedPassword, paymentId]
-    );
-
-    await pool.query(
-      "INSERT INTO payment_requests (user_id, payment_id, expected_amount) VALUES (?, ?, ?)",
-      [userResult.insertId, paymentId, expectedAmount || 10]
     );
 
     res.json({
