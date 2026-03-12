@@ -37,9 +37,6 @@ paths:
                 password:
                   type: string
                   example: strongpassword
-                expectedAmount:
-                  type: number
-                  example: 10
       responses:
         "200":
           description: User created successfully
@@ -50,7 +47,7 @@ paths:
                 properties:
                   message:
                     type: string
-                    example: Usuario creado
+                    example: User created
                   paymentId:
                     type: string
                     example: 4a5f2b6c3e8d9f0a1234567890abcdef1234567890abcdef1234567890abcdef
@@ -115,7 +112,7 @@ paths:
                 properties:
                   message:
                     type: string
-                    example: Pago confirmado
+                    example: Confirmed payment
                   amount:
                     type: number
                     example: 10
@@ -123,6 +120,52 @@ paths:
           description: Unauthorized
         "500":
           description: Internal server error
+
+  /payment/withdraw:
+    post:
+      tags: [Payment]
+      summary: Withdraw funds
+      security:
+       - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [destination, amount]
+              properties:
+                destination:
+                  type: string
+                  example: Ze3pRGcsw9YGBJ5h...
+                amount:
+                  type: number
+                  example: 150
+      responses:
+        "200":
+          description: Withdrawal successful
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  Withdrawal sent:
+                    type: string
+                    example: Withdrawal sent
+                  amount:
+                    type: number
+                    example: 2250
+                  fee:
+                    type: number
+                    example: 150
+                  balance:
+                    type: number
+                    example: 7500
+                  txHash:
+                    type: string
+                    example: b49a7804c955a38df0d0c07cc5b9f876209b64f995d9a547ec41db560dd0e4a1
+        "500":
+          description: Withdrawal failed
 
   /game/play:
     post:
