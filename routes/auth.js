@@ -4,11 +4,34 @@ const bcrypt = require("bcrypt");
 const jwt = require("jsonwebtoken");
 const crypto = require("crypto");
 const pool = require("../db");
+const dns = require("dns").promises;
+const chalk = require("chalk");
 require("dotenv").config();
+
+async function validateEmail(email) {
+
+  const regex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+  if (!regex.test(email))
+    return false;
+
+  const domain = email.split("@")[1];
+
+  try {
+    const mx = await dns.resolveMx(domain);
+    return mx.length > 0;
+  } catch {
+    return false;
+  }
+}
 
 // REGISTER
 router.post("/register", async (req, res) => {
   const { email, password, expectedAmount } = req.body;
+
+  if (!(await validateEmail(email))) {
+    return res.status(400).json({ error: "Invalid email" });
+  }
 
   if (!email || !password)
     return res.status(400).json({ error: "Data is missing" });
@@ -47,7 +70,7 @@ router.post("/register", async (req, res) => {
       address: process.env.ADDRESS,
       paymentId,
     });
-    console.log("User created. Email: " + email)
+    console.log(chalk.blue.bold("User created. Email: " + email))
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: "Internal error" });
@@ -79,7 +102,7 @@ router.post("/login", async (req, res) => {
       { expiresIn: "2h" }
     );
 
-    console.log("Login User. Email: " + email)
+    console.log(chalk.blue.bold("Login User. Email: " + email))
 
     res.json({
       token,

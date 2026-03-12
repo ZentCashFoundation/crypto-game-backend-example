@@ -1,5 +1,6 @@
 const express = require("express");
 const cors = require("cors");
+const chalk = require("chalk");
 require("dotenv").config();
 
 const authRoutes = require("./routes/auth");
@@ -22,5 +23,5 @@ app.get("/", (req, res) => {
 
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {
-  console.log(`🚀 Server running on port ${PORT}`);
+  console.log(chalk.green.bold(`🚀 Server running on port ${PORT}`));
 });
