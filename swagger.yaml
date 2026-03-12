@@ -185,10 +185,16 @@ paths:
                   properties:
                     name:
                       type: string
-                      example: blackjack
                     cost:
                       type: number
-                      example: 10
+              example:
+                games:
+                  - name: blackjack
+                    cost: 15
+                  - name: roulette
+                    cost: 20
+                  - name: slots
+                    cost: 10          
         "500":
           description: Error fetching games            
 
