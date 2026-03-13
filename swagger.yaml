@@ -7,8 +7,10 @@ info:
     This API allows user registration, login, payment verification, balance management, and game sessions.
 
 servers:
+  - url: http://185.252.215.234:3000/api
+    description: Tested development server
   - url: http://localhost:3000/api
-    description: Local development server
+    description: Local development server  
 
 tags:
   - name: Auth
