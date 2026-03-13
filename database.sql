@@ -38,3 +38,17 @@ CREATE TABLE IF NOT EXISTS transaction_history (
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
   FOREIGN KEY(user_id) REFERENCES users(id)
 );
+
+CREATE TABLE IF NOT EXISTS games (
+  name VARCHAR(50) NOT NULL UNIQUE,
+  cost DECIMAL(10,2) NOT NULL
+);
+
+INSERT INTO games (name, cost) VALUES
+('tetris', 5.00),
+('slots', 10.00),
+('blackjack', 15.00),
+('roulette', 20.00),
+('snake', 3.00)
+ON DUPLICATE KEY UPDATE
+cost = VALUES(cost);
