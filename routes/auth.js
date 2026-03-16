@@ -6,6 +6,7 @@ const crypto = require("crypto");
 const pool = require("../db");
 const dns = require("dns").promises;
 const chalk = require("chalk");
+const auth = require("../middleware/auth");
 require("dotenv").config();
 
 async function validateEmail(email) {
@@ -25,7 +26,6 @@ async function validateEmail(email) {
   }
 }
 
-// REGISTER
 router.post("/register", async (req, res) => {
   const { email, password} = req.body;
 
@@ -56,7 +56,7 @@ router.post("/register", async (req, res) => {
       .digest("hex");
 
     const [userResult] = await pool.query(
-      "INSERT INTO users (email, password, payment_id, balance) VALUES (?, ?, ?, 0)",
+      "INSERT INTO users (email, nick, password, payment_id, balance) VALUES (?, 'Anonymous', ?, ?, 0)",
       [email, hashedPassword, paymentId]
     );
 
@@ -72,7 +72,6 @@ router.post("/register", async (req, res) => {
   }
 });
 
-// LOGIN
 router.post("/login", async (req, res) => {
   const { email, password } = req.body;
 
@@ -108,6 +107,38 @@ router.post("/login", async (req, res) => {
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: "Internal error" });
+  }
+});
+
+router.post("/changenick", auth, async (req, res) => {
+  const { username } = req.body;
+  const userId = req.user.id;
+
+  if (!username || username.length < 3) {
+    return res.status(400).json({ error: "Invalid username" });
+  }
+
+  try {
+
+    const [existing] = await pool.query(
+      "SELECT id FROM users WHERE username = ?",
+      [username]
+    );
+
+    if (existing.length > 0) {
+      return res.status(400).json({ error: "Username already taken" });
+    }
+
+    await pool.query(
+      "UPDATE users SET username = ? WHERE id = ?",
+      [username, userId]
+    );
+
+    res.json({ success: true });
+
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: "Error updating username" });
   }
 });
 
