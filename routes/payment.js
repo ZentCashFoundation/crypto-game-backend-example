@@ -4,7 +4,30 @@ const axios = require("axios");
 const auth = require("../middleware/auth");
 const pool = require("../db");
 const chalk = require("chalk");
+const { CryptoNote } = require("zentcash-utils");
+const coinUtils = new CryptoNote();
 require("dotenv").config();
+
+router.get("/deposit", auth, async (req, res) => {
+  try {
+    const [users] = await pool.query(
+      "SELECT payment_id FROM users WHERE id = ?",
+      [req.user.id]
+    );
+
+    const integratedAddress = coinUtils.createIntegratedAddress(process.env.ADDRESS, users[0].payment_id);
+
+    res.json({
+      address: process.env.ADDRESS,
+      paymentId: users[0].payment_id,
+      integratedAddress: integratedAddress
+    });
+
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: "" });
+  }
+});
 
 router.get("/check", auth, async (req, res) => {
   try {
@@ -67,7 +90,6 @@ router.get("/check", auth, async (req, res) => {
         );
 
       }
-
     }
 
     if (credited === 0)
@@ -89,11 +111,26 @@ router.get("/check", auth, async (req, res) => {
   }
 });
 
-const FEE = 150;
+router.get("/balance", auth, async (req, res) => {
+  try {
+    const [users] = await pool.query(
+      "SELECT balance FROM users WHERE id = ?",
+      [req.user.id]
+    );
 
-// POST /api/payment/withdraw
+    res.json({
+      balance: users[0].balance
+    });
+
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: "Error fetching games" });
+  }
+});
+
 router.post("/withdraw", auth, async (req, res) => {
   const { destination, amount } = req.body;
+  const FEE = 150;
 
   if (!destination || typeof amount !== "number") {
     return res.status(400).json({ error: "Destination and amount required" });
