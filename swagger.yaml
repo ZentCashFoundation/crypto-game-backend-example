@@ -100,6 +100,8 @@ paths:
     post:
       tags: [Auth]
       summary: Change your username.
+      description: |
+        Updates the player's nickname. The new nickname will be used to identify the player in the system and in game rankings.
       security:
        - bearerAuth: []
       requestBody:
@@ -115,7 +117,7 @@ paths:
                   example: Picolo
       responses:
         "200":
-          description: 
+          description: Nickname updated successfully.
           content:
             application/json:
               schema:
@@ -349,11 +351,11 @@ paths:
               example:
                 games:
                   - name: Anonymous-06
-                    cost: 15
+                    score: 15
                   - name: Anonymous-05
-                    cost: 20
+                    score: 20
                   - name: Anonymous-04
-                    cost: 10                
+                    score: 10               
         "400":
           description: Game required.
 
