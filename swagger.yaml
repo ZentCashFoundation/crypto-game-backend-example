@@ -110,7 +110,18 @@ paths:
               properties:
                 username:
                   type: string
-                  example: Picolo       
+                  example: Picolo
+      responses:
+        "200":
+          description: 
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true        
 
   /payment/check:
     get:
