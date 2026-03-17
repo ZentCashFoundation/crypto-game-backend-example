@@ -117,7 +117,11 @@ npm install
 Create a .env file:
 
 ```bash
-PORT=3000
+PORT=3001
+PORT_SSL=3000
+
+SSL_PRIVATEKEY=../privkey.pem
+SSL_FULLCHAIN=../fullchain.pem
 
 DB_HOST=localhost
 DB_USER=root
@@ -128,6 +132,7 @@ JWT_SECRET=super_secret_key
 
 WALLET_API_URL=http://127.0.0.1:21699
 WALLET_RPC_PASSWORD=your_wallet_api_password
+ADDRESS=ADDRESS
 ```
 
 
