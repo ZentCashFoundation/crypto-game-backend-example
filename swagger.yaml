@@ -96,6 +96,22 @@ paths:
         "500":
           description: Internal server error
 
+  /auth/changenick:
+    post:
+      tags: [Auth]
+      summary: Change your username.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [username]
+              properties:
+                username:
+                  type: string
+                  example: Picolo       
+
   /payment/check:
     get:
       tags: [Payment]
