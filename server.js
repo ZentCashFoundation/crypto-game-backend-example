@@ -1,6 +1,7 @@
 const express = require("express");
 const cors = require("cors");
 const chalk = require("chalk");
+const http = require('http');
 const https = require("https");
 const fs = require("fs");
 
@@ -21,16 +22,25 @@ app.use("/api/payment", paymentRoutes);
 app.use("/api/game", gameRoutes);
 
 app.get("/", (req, res) => {
-  res.json({ message: "Zent Backend Running" });
+  res.json({ message: "Crypto Game Backend Example API Running" });
 });
 
-const sslOptions = {
-  key: fs.readFileSync("/etc/letsencrypt/live/api.games.zent.cash/privkey.pem"),
-  cert: fs.readFileSync("/etc/letsencrypt/live/api.games.zent.cash/fullchain.pem")
-};
+if (process.env.SSL_PRIVATEKEY && process.env.SSL_FULLCHAIN) {
+  var sslOptions = {
+    key: fs.readFileSync(process.env.SSL_PRIVATEKEY),
+    cert: fs.readFileSync(process.env.SSL_FULLCHAIN)
+  };
+}  
 
-const PORT = process.env.PORT || 3000;
+const PORT_SSL = process.env.PORT_SSL || 3000;
+const PORT = process.env.PORT || 3001;
 
-https.createServer(sslOptions, app).listen(PORT, () => {
-  console.log(chalk.green.bold(`🔒 HTTPS Server running on port ${PORT}`));
+http.createServer(app).listen(PORT, () => {
+  console.log(chalk.green.bold(`🚀 HTTP Server running on port ${PORT}`));
 });
+
+if (process.env.SSL_PRIVATEKEY && process.env.SSL_FULLCHAIN) {
+  https.createServer(sslOptions, app).listen(PORT_SSL, () => {
+    console.log(chalk.green.bold(`🔒 HTTPS Server running on port ${PORT_SSL}`));
+  });
+}
