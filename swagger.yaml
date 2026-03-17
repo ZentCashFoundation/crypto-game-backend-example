@@ -7,10 +7,8 @@ info:
     This API allows user registration, login, payment verification, balance management, and game sessions.
 
 servers:
-  - url: http://185.252.215.234:3001/api
-    description: Tested development server
-  - url: http://localhost:3000/api
-    description: Local development server  
+  - url: https://api.games.zent.cash:3000/api
+    description: Tested development server 
 
 tags:
   - name: Auth
