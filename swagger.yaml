@@ -344,17 +344,17 @@ paths:
                 items:
                   type: object
                   properties:
-                    nick:
+                    username:
                       type: string
                     score:
                       type: number
               example:
                 games:
-                  - name: Anonymous-06
+                  - username: Anonymous-06
                     score: 15
-                  - name: Anonymous-05
+                  - username: Anonymous-05
                     score: 20
-                  - name: Anonymous-04
+                  - username: Anonymous-04
                     score: 10               
         "400":
           description: Game required.
