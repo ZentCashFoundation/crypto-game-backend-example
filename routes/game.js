@@ -106,7 +106,7 @@ router.post("/rankinglist", async (req, res) => {
 
   try {
     const [rankinglist] = await pool.query(
-      "SELECT users.nick, MAX(game_sessions.score) AS score FROM game_sessions JOIN users ON game_sessions.user_id = users.id WHERE game_sessions.game = ? GROUP BY game_sessions.user_id ORDER BY score DESC LIMIT ?",
+      "SELECT users.username, MAX(game_sessions.score) AS score FROM game_sessions JOIN users ON game_sessions.user_id = users.id WHERE game_sessions.game = ? GROUP BY game_sessions.user_id ORDER BY score DESC LIMIT ?",
       [game, rank ?? 10]
     );
 

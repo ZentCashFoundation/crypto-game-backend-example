@@ -56,7 +56,7 @@ router.post("/register", async (req, res) => {
       .digest("hex");
 
     const [userResult] = await pool.query(
-      "INSERT INTO users (email, nick, password, payment_id, balance) VALUES (?, 'Anonymous', ?, ?, 0)",
+      "INSERT INTO users (email, username, password, payment_id, balance) VALUES (?, 'Anonymous', ?, ?, 0)",
       [email, hashedPassword, paymentId]
     );
 
