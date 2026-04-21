@@ -98,6 +98,28 @@ router.post("/score", auth, async (req, res) => {
   }
 });
 
+router.post("/bountyjackpot", async (req, res) => {
+  const { game } = req.body;
+
+  if (!game)
+    return res.status(400).json({ error: "Game required" });
+
+  try {
+    const [bountyjackpot] = await pool.query(
+      "SELECT ROUND(COALESCE(SUM(cost), 0) * 0.5, 2) AS bounty FROM game_sessions WHERE game = ?  AND created_at >= DATE_FORMAT(CURRENT_DATE(), '%Y-%m-01') AND created_at < DATE_FORMAT(CURRENT_DATE() + INTERVAL 1 MONTH, '%Y-%m-01');",
+      [game]
+    );
+
+    res.json({
+      bountyjackpot
+    });
+
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: "Error fetching games" });
+  }
+});
+
 router.post("/rankinglist", async (req, res) => {
   const { game, rank } = req.body;
 
