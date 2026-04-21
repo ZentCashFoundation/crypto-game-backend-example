@@ -55,9 +55,12 @@ router.post("/register", async (req, res) => {
       .update(email + timestamp + randomSalt)
       .digest("hex");
 
+    const timestampu = Date.now().toString();
+    const username = `Anonymous-${timestampu}`;
+
     const [userResult] = await pool.query(
-      "INSERT INTO users (email, username, password, payment_id, balance) VALUES (?, 'Anonymous', ?, ?, 0)",
-      [email, hashedPassword, paymentId]
+      "INSERT INTO users (email, username, password, payment_id, balance) VALUES (?, ?, ?, ?, 0)",
+      [email, username, hashedPassword, paymentId]
     );
 
     res.json({
