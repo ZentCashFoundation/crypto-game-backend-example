@@ -3,7 +3,7 @@ const router = express.Router();
 const auth = require("../middleware/auth");
 const pool = require("../db");
 
-router.get("/list", auth, async (req, res) => {
+router.get("/list", async (req, res) => {
   try {
     const [games] = await pool.query(
       "SELECT name, cost FROM games ORDER BY name"
@@ -139,6 +139,86 @@ router.post("/rankinglist", async (req, res) => {
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: "Error fetching games" });
+  }
+});
+
+router.post("/gamesessions", auth, async (req, res) => {
+  const { game } = req.body;
+  const userId = req.user.id;
+
+  try {
+    let query = `
+      SELECT id, game, cost, score, created_at AS created
+      FROM game_sessions 
+      WHERE user_id = ?
+    `;
+
+    const params = [userId];
+
+    if (game) {
+      query += " AND game = ?";
+      params.push(game);
+    }
+
+    query += " ORDER BY created_at DESC";
+
+    const [game_sessions] = await pool.query(query, params);
+
+    res.json({ game_sessions });
+
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: "Error fetch games" });
+  }
+});
+
+router.post("/admin/gamesessions", auth, async (req, res) => {
+  try {
+    const { game, user_Id } = req.body;
+    const userId = req.user.id;
+
+    const [rows] = await pool.query(
+      "SELECT role FROM users WHERE id = ?",
+      [userId]
+    );
+
+    const user = rows[0];
+
+    if (!user || user.role !== "admin") {
+      return res.status(403).json({ error: "Forbidden" });
+    }
+
+    let query = `
+      SELECT id, user_id, game, cost, score, created_at AS created
+      FROM game_sessions
+    `;
+
+    const conditions = [];
+    const params = [];
+
+    if (game) {
+      conditions.push("game = ?");
+      params.push(game);
+    }
+
+    if (user_Id) {
+      conditions.push("user_id = ?");
+      params.push(user_Id);
+    }
+
+    if (conditions.length > 0) {
+      query += " WHERE " + conditions.join(" AND ");
+    }
+    
+    query += " ORDER BY created_at DESC";
+
+    const [game_sessions] = await pool.query(query, params);
+
+    return res.json({ game_sessions });
+
+  } catch (err) {
+    console.error(err);
+    return res.status(500).json({ error: "Error fetching game sessions" });
   }
 });
 

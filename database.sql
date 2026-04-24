@@ -6,6 +6,7 @@ CREATE TABLE IF NOT EXISTS users (
   email VARCHAR(255) UNIQUE NOT NULL,
   username VARCHAR(255) UNIQUE,
   password VARCHAR(255) NOT NULL,
+  role ENUM('user','admin') NOT NULL DEFAULT 'user',
   payment_id CHAR(64) UNIQUE NOT NULL,
   balance DECIMAL(18,8) DEFAULT 0,
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
@@ -47,10 +48,9 @@ CREATE TABLE IF NOT EXISTS games (
 );
 
 INSERT INTO games (name, cost) VALUES
-('tetris', 5.00),
-('slots', 10.00),
-('blackjack', 15.00),
-('roulette', 20.00),
-('snake', 3.00)
+('tetris', 20.00),
+('pacman', 20.00),
+('snake', 3.00),
+('lamboraider', 3.00)
 ON DUPLICATE KEY UPDATE
 cost = VALUES(cost);
