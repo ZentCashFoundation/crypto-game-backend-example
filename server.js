@@ -10,6 +10,7 @@ require("dotenv").config();
 const authRoutes = require("./routes/auth");
 const paymentRoutes = require("./routes/payment");
 const gameRoutes = require("./routes/game");
+const exchangeRoutes = require("./routes/exchange");
 
 const app = express();
 
@@ -20,6 +21,8 @@ app.use(express.json());
 app.use("/api/auth", authRoutes);
 app.use("/api/payment", paymentRoutes);
 app.use("/api/game", gameRoutes);
+app.use("/api/exchange", exchangeRoutes);
+
 
 app.get("/", (req, res) => {
   res.json({ message: "Crypto Game Backend Example API Running" });

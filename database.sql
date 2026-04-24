@@ -47,6 +47,16 @@ CREATE TABLE IF NOT EXISTS games (
   cost DECIMAL(10,2) NOT NULL
 );
 
+CREATE TABLE IF NOT EXISTS market_prices (
+  id INT AUTO_INCREMENT PRIMARY KEY,
+  pair VARCHAR(20) NOT NULL UNIQUE,
+  last_price DECIMAL(18,14) NOT NULL,
+  bid_price DECIMAL(18,14) DEFAULT NULL,
+  ask_price DECIMAL(18,14) DEFAULT NULL,
+  spread DECIMAL(18,14) GENERATED ALWAYS AS (ask_price - bid_price) STORED,
+  updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+);
+
 INSERT INTO games (name, cost) VALUES
 ('tetris', 20.00),
 ('pacman', 20.00),
@@ -54,3 +64,11 @@ INSERT INTO games (name, cost) VALUES
 ('lamboraider', 3.00)
 ON DUPLICATE KEY UPDATE
 cost = VALUES(cost);
+
+INSERT INTO market_prices (pair, last_price, bid_price, ask_price)
+VALUES (
+  'EXAMPLE_LTC',
+  0.000000000005,
+  0.000000000004,
+  0.000000000006
+);
