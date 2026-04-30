@@ -9,6 +9,11 @@ const chalk = require("chalk");
 const auth = require("../middleware/auth");
 require("dotenv").config();
 
+/** 
+ * Feature:
+ * - Validate email format and check for MX records before registration
+ */
+
 async function validateEmail(email) {
 
   const regex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -26,8 +31,13 @@ async function validateEmail(email) {
   }
 }
 
+/** 
+ * Feature:
+ * - User registration with email and password
+ */
+
 router.post("/register", async (req, res) => {
-  const { email, password} = req.body;
+  const { email, password } = req.body;
 
   if (!(await validateEmail(email))) {
     return res.status(400).json({ error: "Invalid email" });
@@ -36,62 +46,92 @@ router.post("/register", async (req, res) => {
   if (!email || !password)
     return res.status(400).json({ error: "Data is missing" });
 
+  const connection = await pool.getConnection();
+
   try {
-    const [existing] = await pool.query(
-      "SELECT id FROM users WHERE email = ?",
+    await connection.beginTransaction();
+
+    const [existing] = await connection.query(
+      "SELECT id, active FROM users WHERE email = ?",
       [email]
     );
 
-    if (existing.length)
+    if (existing.length && existing[0].active === 0) {
+      await connection.rollback();
+      return res.status(400).json({
+        error: "Account closed by the client. Contact support."
+      });
+    }
+
+    if (existing.length) {
+      await connection.rollback();
       return res.status(400).json({ error: "User already exists" });
+    }
 
     const hashedPassword = await bcrypt.hash(password, 10);
 
     const randomSalt = crypto.randomBytes(16).toString("hex");
-    const timestamp = Date.now().toString();
+
+    const username = `Anonymous-${Date.now()}`;
+
+    const [userResult] = await connection.query(
+      "INSERT INTO users (email, username, password, role, active) VALUES (?, ?, ?, 'user', 1)",
+      [email, username, hashedPassword]
+    );
+
+    const userId = userResult.insertId;
 
     const paymentId = crypto
       .createHash("sha256")
-      .update(email + timestamp + randomSalt)
+      .update(email + Date.now().toString() + randomSalt)
       .digest("hex");
 
-    const timestampu = Date.now().toString();
-    const username = `Anonymous-${timestampu}`;
-
-    const [userResult] = await pool.query(
-      "INSERT INTO users (email, username, password, role, payment_id, balance) VALUES (?, ?, ?, 'user', ?, 0)",
-      [email, username, hashedPassword, paymentId]
+    await connection.query(
+      "INSERT INTO game_wallets (user_id, balance, payment_id) VALUES (?, 0, ?)",
+      [userId, paymentId]
     );
 
-    res.json({
-      message: "User created",
-      address: process.env.ADDRESS,
-      paymentId,
-    });
-    console.log(chalk.blue.bold("User created. Email: " + email))
+    await connection.commit();
+
+    res.json({ message: "User created" });
+
+    console.log(chalk.blue.bold("User created. Email: " + email));
+
   } catch (err) {
+    await connection.rollback();
     console.error(err);
     res.status(500).json({ error: "Internal error" });
+  } finally {
+    connection.release();
   }
 });
+
+/** 
+ * Feature:
+ * - User login with email and password
+ */
 
 router.post("/login", async (req, res) => {
   const { email, password } = req.body;
 
   try {
     const [users] = await pool.query(
-      "SELECT * FROM users WHERE email = ?",
+      "SELECT id, email, username, password, active FROM users WHERE email = ?",
       [email]
     );
 
     if (!users.length)
-      return res.status(400).json({ error: "User not found" });
+      return res.status(400).json({ error: "Invalid credentials" });
 
     const user = users[0];
+
+    if (user.active === 0)
+      return res.status(403).json({ error: "Account disabled" });
+
     const valid = await bcrypt.compare(password, user.password);
 
     if (!valid)
-      return res.status(400).json({ error: "Incorrect password" });
+      return res.status(400).json({ error: "Invalid credentials" });
 
     const token = jwt.sign(
       { id: user.id, email: user.email },
@@ -102,16 +142,21 @@ router.post("/login", async (req, res) => {
     console.log(chalk.blue.bold("Login User. Email: " + email))
 
     res.json({
-      token,
-      balance: user.balance,
-      address: process.env.ADDRESS,
-      paymentId: user.payment_id,
+      id: user.id,
+      email: user.email,
+      username: user.username,
+      token
     });
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: "Internal error" });
   }
 });
+
+/** 
+ * Feature:
+ * - Change username
+ */
 
 router.post("/changenick", auth, async (req, res) => {
   const { username } = req.body;
@@ -142,6 +187,75 @@ router.post("/changenick", auth, async (req, res) => {
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: "Error updating username" });
+  }
+});
+
+/** 
+ * Feature:
+ * - Change user email
+ */
+
+router.post("/changeemail", auth, async (req, res) => {
+  const { email } = req.body;
+  const userId = req.user.id;
+
+  if (!email || !await validateEmail(email)) {
+    return res.status(400).json({ error: "Invalid email" });
+  }
+
+  try {
+
+    const [existing] = await pool.query(
+      "SELECT id FROM users WHERE email = ?",
+      [email]
+    );
+
+    if (existing.length > 0) {
+      return res.status(400).json({ error: "Email already taken" });
+    }
+
+    await pool.query(
+      "UPDATE users SET email = ? WHERE id = ?",
+      [email, userId]
+    );
+
+    res.json({ success: true });
+
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: "Error updating email" });
+  }
+});
+
+/** 
+ * Feature:
+ * - Delete user account
+ */
+
+router.post("/deleteaccount", auth, async (req, res) => {
+  const userId = req.user.id;
+
+  try {
+
+    const [existing] = await pool.query(
+      "SELECT id FROM users WHERE id = ?",
+      [userId]
+    );
+
+    if (existing.length === 0) {
+      return res.status(400).json({ error: "User not found" });
+    }
+
+    await pool.query(
+      "UPDATE users SET active = 0, deleted_at = NOW() WHERE id = ?",
+      [userId]
+    );
+
+    res.json({ success: true });
+
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: "Error updating user status" });
   }
 });
 
