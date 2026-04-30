@@ -3,6 +3,8 @@ const router = express.Router();
 const auth = require("../middleware/auth");
 const pool = require("../db");
 
+
+/* Get list of available games */
 router.get("/list", async (req, res) => {
   try {
     const [games] = await pool.query(
@@ -19,6 +21,7 @@ router.get("/list", async (req, res) => {
   }
 });
 
+/* Start a game session */
 router.post("/play", auth, async (req, res) => {
   const { game } = req.body;
 
@@ -38,7 +41,7 @@ router.post("/play", auth, async (req, res) => {
     const cost = games[0].cost;
 
     const [update] = await pool.query(
-      "UPDATE users SET balance = balance - ? WHERE id = ? AND balance >= ?",
+      "UPDATE game_wallets SET balance = balance - ? WHERE user_id = ? AND balance >= ?",
       [cost, req.user.id, cost]
     );
 
@@ -51,13 +54,14 @@ router.post("/play", auth, async (req, res) => {
     );
 
     await pool.query(
-      "INSERT INTO transaction_history (user_id, type, amount, reference_id) VALUES (?, 'play', ?, ?)",
+      "INSERT INTO game_transaction_history (user_id, type, amount, reference_id) VALUES (?, 'play', ?, ?)",
       [req.user.id, cost, session.insertId]
     );
 
     res.json({
       message: "Game started",
       sessionId: session.insertId,
+      game: game,
       cost: cost
     });
 
@@ -67,6 +71,7 @@ router.post("/play", auth, async (req, res) => {
   }
 });
 
+/* Submit game score */
 router.post("/score", auth, async (req, res) => {
   const { sessionId, score } = req.body;
   const userId = req.user.id;
@@ -98,6 +103,7 @@ router.post("/score", auth, async (req, res) => {
   }
 });
 
+/* Get current month's bounty jackpot for a game */
 router.post("/bountyjackpot", async (req, res) => {
   const { game } = req.body;
 
@@ -120,6 +126,7 @@ router.post("/bountyjackpot", async (req, res) => {
   }
 });
 
+/* Get ranking list for a game */
 router.post("/rankinglist", async (req, res) => {
   const { game, rank } = req.body;
 
@@ -142,6 +149,7 @@ router.post("/rankinglist", async (req, res) => {
   }
 });
 
+/* Get game sessions for user (optionally filtered by game) */
 router.post("/gamesessions", auth, async (req, res) => {
   const { game } = req.body;
   const userId = req.user.id;
@@ -172,6 +180,7 @@ router.post("/gamesessions", auth, async (req, res) => {
   }
 });
 
+/* Admin: Get game sessions with optional filters */
 router.post("/admin/gamesessions", auth, async (req, res) => {
   try {
     const { game, user_Id } = req.body;
