@@ -1,20 +1,26 @@
 CREATE DATABASE IF NOT EXISTS crypto_game;
 USE crypto_game;
 
+/* This table stores the user information, including email, username, password, role, and account status. */
 CREATE TABLE IF NOT EXISTS users (
   id INT AUTO_INCREMENT PRIMARY KEY,
   email VARCHAR(255) UNIQUE NOT NULL,
   username VARCHAR(255) UNIQUE,
   password VARCHAR(255) NOT NULL,
   role ENUM('user','admin') NOT NULL DEFAULT 'user',
-  payment_id CHAR(64) UNIQUE NOT NULL,
-  balance DECIMAL(30,14) DEFAULT 0,
   active TINYINT(1) DEFAULT 1,
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
   updated_at TIMESTAMP NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
   deleted_at DATETIME DEFAULT NULL
 );
 
+/**
+*
+* Tables for game ecosystem
+*
+**/
+
+/* This table stores the game wallets for each user, including the balance and payment ID. */
 CREATE TABLE IF NOT EXISTS game_wallets (
   id INT AUTO_INCREMENT PRIMARY KEY,
   user_id INT NOT NULL UNIQUE,
@@ -25,6 +31,7 @@ CREATE TABLE IF NOT EXISTS game_wallets (
   FOREIGN KEY (user_id) REFERENCES users(id)
 );
 
+/* This table stores the processed payments to prevent double processing. */
 CREATE TABLE IF NOT EXISTS processed_payments (
   id INT AUTO_INCREMENT PRIMARY KEY,
   user_id INT NOT NULL,
@@ -35,6 +42,24 @@ CREATE TABLE IF NOT EXISTS processed_payments (
   FOREIGN KEY(user_id) REFERENCES users(id)
 );
 
+/* This table stores the transaction history for deposits, withdrawals, and game plays. */
+CREATE TABLE IF NOT EXISTS transaction_history (
+  id INT AUTO_INCREMENT PRIMARY KEY,
+  user_id INT NOT NULL,
+  type ENUM('deposit','withdraw','play') NOT NULL,
+  amount DECIMAL(30,14) NOT NULL,
+  reference_id VARCHAR(128),
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  FOREIGN KEY(user_id) REFERENCES users(id)
+);
+
+/* This table stores the available games and their costs. */
+CREATE TABLE IF NOT EXISTS games (
+  name VARCHAR(50) NOT NULL UNIQUE,
+  cost DECIMAL(30,14) NOT NULL
+);
+
+/* This table stores the game sessions for each user, including the game played, cost, and score. */
 CREATE TABLE IF NOT EXISTS game_sessions (
   id INT AUTO_INCREMENT PRIMARY KEY,
   user_id INT NOT NULL,
@@ -45,22 +70,40 @@ CREATE TABLE IF NOT EXISTS game_sessions (
   FOREIGN KEY(user_id) REFERENCES users(id)
 );
 
-CREATE TABLE IF NOT EXISTS transaction_history (
+/* Insert initial game data with upsert to avoid duplicates */
+INSERT INTO games (name, cost) VALUES
+('tetris', 20.00),
+('pacman', 20.00),
+('snake', 3.00),
+('lamboraider', 3.00)
+ON DUPLICATE KEY UPDATE
+cost = VALUES(cost);
+
+
+/** 
+*
+*   Tables for exchange 
+*
+**/
+
+/* This table stores the exchange wallet addresses for each user and asset. */
+CREATE TABLE IF NOT EXISTS exchange_wallets (
   id INT AUTO_INCREMENT PRIMARY KEY,
   user_id INT NOT NULL,
-  type ENUM('deposit','withdraw','play','admin') NOT NULL,
-  amount DECIMAL(30,14) NOT NULL,
-  reference_id VARCHAR(128),
+  asset_ticker VARCHAR(20) NOT NULL,
+  asset_name VARCHAR(50) NOT NULL,
+  network VARCHAR(20) NOT NULL DEFAULT 'legacy',
+  address VARCHAR(255) NOT NULL UNIQUE,
+  payment_id VARCHAR(64) DEFAULT NULL,
+  integrated_address VARCHAR(255) DEFAULT NULL,
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-  FOREIGN KEY(user_id) REFERENCES users(id)
+  UNIQUE(user_id, asset_ticker),
+  FOREIGN KEY (user_id) REFERENCES users(id)
+  ON DELETE CASCADE
 );
 
-CREATE TABLE IF NOT EXISTS games (
-  name VARCHAR(50) NOT NULL UNIQUE,
-  cost DECIMAL(30,14) NOT NULL
-);
-
-CREATE TABLE IF NOT EXISTS market_prices (
+/* This table stores the current market prices for each trading pair. */
+CREATE TABLE IF NOT EXISTS exchange_market_prices (
   id INT AUTO_INCREMENT PRIMARY KEY,
   pair VARCHAR(20) NOT NULL UNIQUE,
   last_price DECIMAL(30,14) NOT NULL,
@@ -70,15 +113,8 @@ CREATE TABLE IF NOT EXISTS market_prices (
   updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
 );
 
-INSERT INTO games (name, cost) VALUES
-('tetris', 20.00),
-('pacman', 20.00),
-('snake', 3.00),
-('lamboraider', 3.00)
-ON DUPLICATE KEY UPDATE
-cost = VALUES(cost);
-
-INSERT INTO market_prices (pair, last_price, bid_price, ask_price)
+/* Insert initial market price for ZTC_LTC pair */
+INSERT INTO exchange_market_prices (pair, last_price, bid_price, ask_price)
 VALUES (
   'ZTC_LTC',
   0.000000000005,
