@@ -32,7 +32,7 @@ CREATE TABLE IF NOT EXISTS game_wallets (
 );
 
 /* This table stores the processed payments to prevent double processing. */
-CREATE TABLE IF NOT EXISTS processed_payments (
+CREATE TABLE IF NOT EXISTS game_processed_payments (
   id INT AUTO_INCREMENT PRIMARY KEY,
   user_id INT NOT NULL,
   payment_id CHAR(64) NOT NULL,
@@ -43,7 +43,7 @@ CREATE TABLE IF NOT EXISTS processed_payments (
 );
 
 /* This table stores the transaction history for deposits, withdrawals, and game plays. */
-CREATE TABLE IF NOT EXISTS transaction_history (
+CREATE TABLE IF NOT EXISTS game_transaction_history (
   id INT AUTO_INCREMENT PRIMARY KEY,
   user_id INT NOT NULL,
   type ENUM('deposit','withdraw','play') NOT NULL,
