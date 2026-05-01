@@ -81,15 +81,18 @@ paths:
               schema:
                 type: object
                 properties:
+                  id:
+                    type: number
+                    example: 3
+                  email:
+                    type: string
+                    example: user2@example.com
+                  username:
+                    type: string
+                    example: Anonymous-1777407913546
                   token:
                     type: string
                     example: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
-                  balance:
-                    type: number
-                    example: 0
-                  paymentId:
-                    type: string
-                    example: 4a5f2b6c3e8d9f0a1234567890abcdef1234567890abcdef1234567890abcdef
         "400":
           description: Invalid credentials.
         "500":
