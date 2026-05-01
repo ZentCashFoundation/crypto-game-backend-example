@@ -157,6 +157,26 @@ paths:
                     type: boolean
                     example: true
 
+  /auth/deleteaccount:
+    post:
+      tags: [Auth]
+      summary: Delete your account.
+      description: |
+        Deletes the player's account and all associated data.
+      security:
+       - bearerAuth: []
+      responses:
+        "200":
+          description: Account deleted successfully.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true                    
+
   /payment/deposit:
     get:
       tags: [Payment]
