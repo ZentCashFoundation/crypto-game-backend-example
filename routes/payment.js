@@ -8,32 +8,35 @@ const { CryptoNote } = require("zentcash-utils");
 const coinUtils = new CryptoNote();
 require("dotenv").config();
 
+/* Get deposit address */
 router.get("/deposit", auth, async (req, res) => {
   try {
-    const [users] = await pool.query(
-      "SELECT payment_id FROM users WHERE id = ?",
+    const [deposit] = await pool.query(
+      "SELECT payment_id FROM game_wallets WHERE user_id = ?",
       [req.user.id]
     );
 
-    const integratedAddress = coinUtils.createIntegratedAddress(process.env.ADDRESS, users[0].payment_id);
+    const integratedAddress = coinUtils.createIntegratedAddress(process.env.ADDRESS, deposit[0].payment_id);
 
     res.json({
+      message: "Use the following address and payment ID to make a deposit.",
       address: process.env.ADDRESS,
-      paymentId: users[0].payment_id,
+      paymentId: deposit[0].payment_id,
       integratedAddress: integratedAddress
     });
 
   } catch (err) {
     console.error(err);
-    res.status(500).json({ error: "" });
+    res.status(500).json({ error: "Deposit failed" });
   }
 });
 
+/* Check for new payments and credit user */
 router.get("/check", auth, async (req, res) => {
   try {
 
     const [users] = await pool.query(
-      "SELECT payment_id FROM users WHERE id = ?",
+      "SELECT payment_id FROM game_wallets WHERE user_id = ?",
       [req.user.id]
     );
 
@@ -66,26 +69,26 @@ router.get("/check", auth, async (req, res) => {
         const amountZent = transfer.amount / 100;
 
         const [exists] = await pool.query(
-          "SELECT id FROM processed_payments WHERE tx_hash = ?",
+          "SELECT id FROM game_processed_payments WHERE tx_hash = ?",
           [tx.hash]
         );
 
         if (exists.length) continue;
 
         await pool.query(
-          "UPDATE users SET balance = balance + ? WHERE id = ?",
+          "UPDATE game_wallets SET balance = balance + ? WHERE user_id = ?",
           [amountZent, req.user.id]
         );
 
         credited += amountZent;
 
         await pool.query(
-          "INSERT INTO processed_payments (user_id, payment_id, amount, tx_hash) VALUES (?, ?, ?, ?)",
+          "INSERT INTO game_processed_payments (user_id, payment_id, amount, tx_hash) VALUES (?, ?, ?, ?)",
           [req.user.id, paymentId, amountZent, tx.hash]
         );
 
         await pool.query(
-          "INSERT INTO transaction_history (user_id, type, amount, reference_id) VALUES (?, 'deposit', ?, ?)",
+          "INSERT INTO game_transaction_history (user_id, type, amount, reference_id) VALUES (?, 'deposit', ?, ?)",
           [req.user.id, amountZent, tx.hash]
         );
 
@@ -111,10 +114,11 @@ router.get("/check", auth, async (req, res) => {
   }
 });
 
+/* Get user balance */
 router.get("/balance", auth, async (req, res) => {
   try {
     const [users] = await pool.query(
-      "SELECT balance FROM users WHERE id = ?",
+      "SELECT balance FROM game_wallets WHERE user_id = ?",
       [req.user.id]
     );
 
@@ -128,6 +132,7 @@ router.get("/balance", auth, async (req, res) => {
   }
 });
 
+/* Withdraw funds to external address */
 router.post("/withdraw", auth, async (req, res) => {
   const { destination, amount } = req.body;
   const FEE = 150;
@@ -143,7 +148,7 @@ router.post("/withdraw", auth, async (req, res) => {
   try {
     
     const [users] = await pool.query(
-      "SELECT balance FROM users WHERE id = ?",
+      "SELECT balance FROM game_wallets WHERE user_id = ?",
       [req.user.id]
     );
 
@@ -158,7 +163,7 @@ router.post("/withdraw", auth, async (req, res) => {
 
    
     await pool.query(
-      "UPDATE users SET balance = balance - ? WHERE id = ?",
+      "UPDATE game_wallets SET balance = balance - ? WHERE user_id = ?",
       [amount + FEE, req.user.id]
     );
 
@@ -179,7 +184,7 @@ router.post("/withdraw", auth, async (req, res) => {
     );
 
     await pool.query(
-      "INSERT INTO transaction_history (user_id, type, amount, reference_id) VALUES (?, 'withdraw', ?, ?)",
+      "INSERT INTO game_transaction_history (user_id, type, amount, reference_id) VALUES (?, 'withdraw', ?, ?)",
       [req.user.id, amount, response.data.transactionHash]
     );
 
