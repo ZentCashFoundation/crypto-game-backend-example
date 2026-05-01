@@ -47,9 +47,6 @@ paths:
                   message:
                     type: string
                     example: User created
-                  paymentId:
-                    type: string
-                    example: 4a5f2b6c3e8d9f0a1234567890abcdef1234567890abcdef1234567890abcdef
         "400":
           description: Missing or invalid data.
         "500":
@@ -120,6 +117,37 @@ paths:
       responses:
         "200":
           description: Nickname updated successfully.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+
+  /auth/changeemail:
+    post:
+      tags: [Auth]
+      summary: Change your email.
+      description: |
+        Updates the player's email address.
+      security:
+       - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [email]
+              properties:
+                email:
+                  type: string
+                  example: user@example.com
+      responses:
+        "200":
+          description: Email updated successfully.
           content:
             application/json:
               schema:
