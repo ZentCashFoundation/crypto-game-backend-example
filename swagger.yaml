@@ -489,9 +489,7 @@ paths:
                     example: 0.02  
                   updated_at:
                     type: string
-                    example: 2024-06-01T12:00:00Z  
-        "500":
-          description: 
+                    example: 2024-06-01T12:00:00Z   
 components:
   securitySchemes:
     bearerAuth:
