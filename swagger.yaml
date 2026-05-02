@@ -176,7 +176,7 @@ paths:
                     type: boolean
                     example: true                    
 
-  games/wallet/deposit:
+  /games/wallet/deposit:
     get:
       tags: [Games - Wallet]
       summary: Retrieves the data required to make a deposit.
@@ -202,7 +202,7 @@ paths:
                     type: string
                     example: Ze3mT8v6posHdGTJi7NrHjAEhYg2kMbqEJ8LGsbjrjTF9Q7jecziz5nA6dMpsDY55bHbSaLT9NGyW9Pvpixr4RYf9ZkaKZ3uGSra1wBgp4FuykGzhPbngcJmzSmu6acYLW4zjarjjvBVUEUMjbYmKYfsZ6hcSTEudjnAngYfS8dYvxG32w23D5Wqu  
                         
-  games/wallet/check:
+  /games/wallet/check:
     get:
       tags: [Games - Wallet]
       summary: Check pending payments and update balance.
@@ -227,7 +227,7 @@ paths:
         "500":
           description: Internal server error.
 
-  games/wallet/balance:
+  /games/wallet/balance:
     get:
       tags: [Games - Wallet]
       summary: Retrieves the current account balance.
@@ -247,7 +247,7 @@ paths:
         "500":
           description: Internal server error.        
 
-  games/wallet/withdraw:
+  /games/wallet/withdraw:
     post:
       tags: [Games - Wallet]
       summary: Withdraws funds from the account.
@@ -293,7 +293,7 @@ paths:
         "500":
           description: Withdrawal failed.
 
-  games/game/list:
+  /games/game/list:
     get:
       tags: [Games - Game]
       summary: List of games and prices.
@@ -324,7 +324,7 @@ paths:
         "500":
           description: Error fetching games.            
 
-  games/game/play:
+  /games/game/play:
     post:
       tags: [Games - Game]
       summary: Start a game session and deduct balance.
@@ -367,7 +367,7 @@ paths:
         "500":
           description: Error starting game.    
 
-  games/game/score:
+  /games/game/score:
     post:
       tags:  [Games - Game]
       summary: Submits the score achieved by the user for a specific game session.
@@ -407,7 +407,7 @@ paths:
         "500":
           description: Error saving score.
 
-  games/game/rankinglist:
+  /games/game/rankinglist:
     post:
       tags:  [Games - Game]
       summary: List of the best players with their scores.
@@ -454,7 +454,7 @@ paths:
         "400":
           description: Game required.
 
-  exchange/market/tickers:
+  /exchange/market/tickers:
     get:
       tags: [Exchange - Market]
       summary: Market related statistics for all markets.
@@ -497,7 +497,7 @@ paths:
                           format: date-time
                           example: 2026-04-30T18:58:19.000Z 
   
-  exchange/market/ticker:
+  /exchange/market/ticker:
     get:
       tags: [Exchange - Market]
       summary: Market related statistics for a specific market.
