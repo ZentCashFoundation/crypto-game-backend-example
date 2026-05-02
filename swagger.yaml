@@ -13,7 +13,7 @@ tags:
   - name: Auth
   - name: Games - Game
   - name: Games - Wallet
-  - name: Exchange
+  - name: Exchange - Market
 
 
 paths:
@@ -454,6 +454,44 @@ paths:
         "400":
           description: Game required.
 
+  exchange/market/tickers:
+    get:
+      tags: [Exchange - Market]
+      summary: Market related statistics for all markets.
+      description: |
+      security:
+       - bearerAuth: []
+      responses:
+        "200":
+          description: List of market tickers.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  id:
+                    type: number
+                    example: 1
+                  pair:
+                    type: string
+                    example: ZTC_USD
+                  last_price:
+                    type: number
+                    example: 0.5
+                  bid_price:
+                    type: number
+                    example: 0.49
+                  ask_price:
+                    type: number
+                    example: 0.51 
+                  spread:
+                    type: number
+                    example: 0.02  
+                  updated_at:
+                    type: string
+                    example: 2024-06-01T12:00:00Z  
+        "500":
+          description: 
 components:
   securitySchemes:
     bearerAuth:
