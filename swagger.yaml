@@ -179,7 +179,7 @@ paths:
 
   /wallet/deposit:
     get:
-      tags: [Payment]
+      tags: [Wallet]
       summary: Retrieves the data required to make a deposit.
       description: |
         Returns the payment information needed for a user to send funds to the system, including the deposit address and the identifiers required to correctly link the transaction.
@@ -205,7 +205,7 @@ paths:
                         
   /wallet/check:
     get:
-      tags: [Payment]
+      tags: [Wallet]
       summary: Check pending payments and update balance.
       security:
        - bearerAuth: []
@@ -230,7 +230,7 @@ paths:
 
   /wallet/balance:
     get:
-      tags: [Payment]
+      tags: [Wallet]
       summary: Retrieves the current account balance.
       security:
        - bearerAuth: []
@@ -250,7 +250,7 @@ paths:
 
   /wallet/withdraw:
     post:
-      tags: [Payment]
+      tags: [Wallet]
       summary: Withdraws funds from the account.
       security:
        - bearerAuth: []
