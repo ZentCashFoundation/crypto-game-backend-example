@@ -11,11 +11,10 @@ servers:
   
 tags:
   - name: Auth
-    description: User registration and login.
-  - name: Wallet
-    description: Endpoints for deposit, payment verification, and fund withdrawals.
-  - name: Game
-    description: Game session endpoints.
+  - name: Games - Game
+  - name: Games - Wallet
+  - name: Exchange
+
 
 paths:
   /auth/register:
@@ -177,9 +176,9 @@ paths:
                     type: boolean
                     example: true                    
 
-  /wallet/deposit:
+  games/wallet/deposit:
     get:
-      tags: [Wallet]
+      tags: [Games - Wallet]
       summary: Retrieves the data required to make a deposit.
       description: |
         Returns the payment information needed for a user to send funds to the system, including the deposit address and the identifiers required to correctly link the transaction.
@@ -203,9 +202,9 @@ paths:
                     type: string
                     example: Ze3mT8v6posHdGTJi7NrHjAEhYg2kMbqEJ8LGsbjrjTF9Q7jecziz5nA6dMpsDY55bHbSaLT9NGyW9Pvpixr4RYf9ZkaKZ3uGSra1wBgp4FuykGzhPbngcJmzSmu6acYLW4zjarjjvBVUEUMjbYmKYfsZ6hcSTEudjnAngYfS8dYvxG32w23D5Wqu  
                         
-  /wallet/check:
+  games/wallet/check:
     get:
-      tags: [Wallet]
+      tags: [Games - Wallet]
       summary: Check pending payments and update balance.
       security:
        - bearerAuth: []
@@ -228,9 +227,9 @@ paths:
         "500":
           description: Internal server error.
 
-  /wallet/balance:
+  games/wallet/balance:
     get:
-      tags: [Wallet]
+      tags: [Games - Wallet]
       summary: Retrieves the current account balance.
       security:
        - bearerAuth: []
@@ -248,9 +247,9 @@ paths:
         "500":
           description: Internal server error.        
 
-  /wallet/withdraw:
+  games/wallet/withdraw:
     post:
-      tags: [Wallet]
+      tags: [Games - Wallet]
       summary: Withdraws funds from the account.
       security:
        - bearerAuth: []
@@ -294,9 +293,9 @@ paths:
         "500":
           description: Withdrawal failed.
 
-  /game/list:
+  games/game/list:
     get:
-      tags: [Game]
+      tags: [Games - Game]
       summary: List of games and prices.
       security:
        - bearerAuth: []
@@ -325,9 +324,9 @@ paths:
         "500":
           description: Error fetching games.            
 
-  /game/play:
+  games/game/play:
     post:
-      tags: [Game]
+      tags: [Games - Game]
       summary: Start a game session and deduct balance.
       security:
        - bearerAuth: []
@@ -368,9 +367,9 @@ paths:
         "500":
           description: Error starting game.    
 
-  /game/score:
+  games/game/score:
     post:
-      tags:  [Game]
+      tags:  [Games - Game]
       summary: Submits the score achieved by the user for a specific game session.
       description: |
         Submits the score achieved by the user for a specific game session.
@@ -408,9 +407,9 @@ paths:
         "500":
           description: Error saving score.
 
-  /game/rankinglist:
+  games/game/rankinglist:
     post:
-      tags:  [Game]
+      tags:  [Games - Game]
       summary: List of the best players with their scores.
       description: |
         Returns a list of the best players ranked by their scores. The results are ordered from highest to lowest score and can be used to display a leaderboard of top players in the game.        
