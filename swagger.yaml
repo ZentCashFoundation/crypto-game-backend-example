@@ -12,7 +12,7 @@ servers:
 tags:
   - name: Auth
     description: User registration and login.
-  - name: Payment
+  - name: Wallet
     description: Endpoints for deposit, payment verification, and fund withdrawals.
   - name: Game
     description: Game session endpoints.
@@ -177,7 +177,7 @@ paths:
                     type: boolean
                     example: true                    
 
-  /payment/deposit:
+  /wallet/deposit:
     get:
       tags: [Payment]
       summary: Retrieves the data required to make a deposit.
@@ -203,7 +203,7 @@ paths:
                     type: string
                     example: Ze3mT8v6posHdGTJi7NrHjAEhYg2kMbqEJ8LGsbjrjTF9Q7jecziz5nA6dMpsDY55bHbSaLT9NGyW9Pvpixr4RYf9ZkaKZ3uGSra1wBgp4FuykGzhPbngcJmzSmu6acYLW4zjarjjvBVUEUMjbYmKYfsZ6hcSTEudjnAngYfS8dYvxG32w23D5Wqu  
                         
-  /payment/check:
+  /wallet/check:
     get:
       tags: [Payment]
       summary: Check pending payments and update balance.
@@ -228,7 +228,7 @@ paths:
         "500":
           description: Internal server error.
 
-  /payment/balance:
+  /wallet/balance:
     get:
       tags: [Payment]
       summary: Retrieves the current account balance.
@@ -248,7 +248,7 @@ paths:
         "500":
           description: Internal server error.        
 
-  /payment/withdraw:
+  /wallet/withdraw:
     post:
       tags: [Payment]
       summary: Withdraws funds from the account.
