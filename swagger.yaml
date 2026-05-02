@@ -459,7 +459,8 @@ paths:
       tags: [Exchange - Market]
       summary: Market related statistics for all markets.
       security:
-       - bearerAuth: []
+        - bearerAuth: []
+
       responses:
         "200":
           description: List of market tickers.
@@ -468,34 +469,41 @@ paths:
               schema:
                 type: object
                 properties:
-                  id:
-                    type: number
-                    example: 1
-                  pair:
-                    type: string
-                    example: ZTC_USD
-                  last_price:
-                    type: number
-                    example: 0.5
-                  bid_price:
-                    type: number
-                    example: 0.49
-                  ask_price:
-                    type: number
-                    example: 0.51 
-                  spread:
-                    type: number
-                    example: 0.02  
-                  updated_at:
-                    type: string
-                    example: 2024-06-01T12:00:00Z   
-
+                  result:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        id:
+                          type: number
+                          example: 1
+                        pair:
+                          type: string
+                          example: ZTC_LTC
+                        last_price:
+                          type: string
+                          example: "0.00000000000500"
+                        bid_price:
+                          type: string
+                          example: "0.00000000000400"
+                        ask_price:
+                          type: string
+                          example: "0.00000000000600"
+                        spread:
+                          type: string
+                          example: "0.00000000000200"
+                        updated_at:
+                          type: string
+                          format: date-time
+                          example: 2026-04-30T18:58:19.000Z 
+  
   exchange/market/ticker:
     get:
       tags: [Exchange - Market]
       summary: Market related statistics for a specific market.
       security:
-       - bearerAuth: []
+        - bearerAuth: []
+
       parameters:
         - in: query
           name: pair
@@ -504,6 +512,7 @@ paths:
             type: string
             example: ZTC_LTC
           description: Trading pair (e.g. ZTC_LTC)
+
       responses:
         "200":
           description: Market ticker for the specified market.
@@ -512,27 +521,31 @@ paths:
               schema:
                 type: object
                 properties:
-                  id:
-                    type: number
-                    example: 1
-                  pair:
-                    type: string
-                    example: ZTC_USD
-                  last_price:
-                    type: number
-                    example: 0.5
-                  bid_price:
-                    type: number
-                    example: 0.49
-                  ask_price:
-                    type: number
-                    example: 0.51 
-                  spread:
-                    type: number
-                    example: 0.02  
-                  updated_at:
-                    type: string
-                    example: 2024-06-01T12:00:00Z   
+                  result:
+                    type: object
+                    properties:
+                      id:
+                        type: number
+                        example: 1
+                      pair:
+                        type: string
+                        example: ZTC_LTC
+                      last_price:
+                        type: string
+                        example: "0.00000000000500"
+                      bid_price:
+                        type: string
+                        example: "0.00000000000400"
+                      ask_price:
+                        type: string
+                        example: "0.00000000000600"
+                      spread:
+                        type: string
+                        example: "0.00000000000200"
+                      updated_at:
+                        type: string
+                        format: date-time
+                        example: 2026-04-30T18:58:19.000Z  
 components:
   securitySchemes:
     bearerAuth:
