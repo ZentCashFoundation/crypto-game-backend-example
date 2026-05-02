@@ -1,7 +1,7 @@
 const express = require("express");
 const router = express.Router();
-const auth = require("../middleware/auth");
-const pool = require("../db");
+const auth = require("../../middleware/auth");
+const pool = require("../../db");
 
 
 /* Get list of available games */

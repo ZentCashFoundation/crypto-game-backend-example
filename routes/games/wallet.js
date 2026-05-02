@@ -1,8 +1,8 @@
 const express = require("express");
 const router = express.Router();
 const axios = require("axios");
-const auth = require("../middleware/auth");
-const pool = require("../db");
+const auth = require("../../middleware/auth");
+const pool = require("../../db");
 const chalk = require("chalk");
 const { CryptoNote } = require("zentcash-utils");
 const coinUtils = new CryptoNote();

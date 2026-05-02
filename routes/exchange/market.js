@@ -1,9 +1,9 @@
 const express = require("express");
 const router = express.Router();
-const auth = require("../middleware/auth");
-const pool = require("../db");
+const auth = require("../../middleware/auth");
+const pool = require("../../db");
 
-router.get("/market/tickers", async (req, res) => {
+router.get("/tickers", async (req, res) => {
   try {
     const [rows] = await pool.query(
       "SELECT * FROM exchange_market_prices ORDER BY updated_at ASC"
@@ -16,7 +16,7 @@ router.get("/market/tickers", async (req, res) => {
   }
 });
 
-router.get("/market/ticker", async (req, res) => {
+router.get("/ticker", async (req, res) => {
   const { pair } = req.query;
 
   if (!pair) {
