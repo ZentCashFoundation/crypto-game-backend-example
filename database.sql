@@ -86,20 +86,32 @@ cost = VALUES(cost);
 *
 **/
 
+/* This table store the exchange assets */ 
+CREATE TABLE IF NOT EXISTS exchange_assets (
+  ticker VARCHAR(20) PRIMARY KEY,
+  name VARCHAR(50),
+  type ENUM('UTXO','ACCOUNT','CRYPTONOTE','FORKNOTE','TURTLENOTE') NOT NULL,
+  network_default VARCHAR(20) DEFAULT 'mainnet',
+  rpc_url VARCHAR(255),
+  decimals INT DEFAULT 8,
+  contract_address VARCHAR(255),
+  requires_memo BOOLEAN DEFAULT 0
+);
+
 /* This table stores the exchange wallet addresses for each user and asset. */
 CREATE TABLE IF NOT EXISTS exchange_wallets (
   id INT AUTO_INCREMENT PRIMARY KEY,
   user_id INT NOT NULL,
   asset_ticker VARCHAR(20) NOT NULL,
-  asset_name VARCHAR(50) NOT NULL,
-  network VARCHAR(20) NOT NULL DEFAULT 'legacy',
-  address VARCHAR(255) NOT NULL UNIQUE,
+  network VARCHAR(20) NOT NULL DEFAULT 'mainnet',
+  address VARCHAR(255) NOT NULL,
   payment_id VARCHAR(64) DEFAULT NULL,
   integrated_address VARCHAR(255) DEFAULT NULL,
+  memo VARCHAR(128) DEFAULT NULL,
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-  UNIQUE(user_id, asset_ticker),
-  FOREIGN KEY (user_id) REFERENCES users(id)
-  ON DELETE CASCADE
+  UNIQUE(user_id, asset_ticker, network),
+  FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+  FOREIGN KEY (asset_ticker) REFERENCES exchange_assets(ticker)
 );
 
 /* This table stores the current market prices for each trading pair. */
@@ -112,6 +124,15 @@ CREATE TABLE IF NOT EXISTS exchange_market_prices (
   spread DECIMAL(30,14) GENERATED ALWAYS AS (ask_price - bid_price) STORED,
   updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
 );
+
+/* Insert assets */
+INSERT INTO exchange_assets (ticker, name, type) VALUES
+('BTC', 'Bitcoin', 'UTXO'),
+('LTC', 'Litecoin', 'UTXO'),
+('ZTC', 'ZentCash', 'TURTLENOTE'),
+('XMR', 'Monero', 'CRYPTONOTE'),
+('ETH', 'Ethereum', 'ACCOUNT'),
+('USDT', 'Tether', 'ACCOUNT');
 
 /* Insert initial market price for ZTC_LTC pair */
 INSERT INTO exchange_market_prices (pair, last_price, bid_price, ask_price)
