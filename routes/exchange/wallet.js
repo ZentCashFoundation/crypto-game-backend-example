@@ -8,14 +8,22 @@ const { CryptoNote } = require("zentcash-utils");
 const coinUtils = new CryptoNote();
 
 router.post("/deposit", auth, async (req, res) => {
-  const { ticker, network = 'mainnet'} = req.body;
+  const { ticker, network = "mainnet" } = req.body;
   const userId = req.user.id;
 
   if (!ticker)
     return res.status(400).json({ error: "Ticker Required" });
 
+  const lockKey = `deposit:${userId}:${ticker}:${network}`;
+
+  if (global[lockKey]) {
+    return res.status(429).json({ error: "Wallet generation in progress" });
+  }
+
+  global[lockKey] = true;
+
   try {
-    /* Buscamos si el activo esta listado*/
+    /* 1. Asset */
     const [assetRows] = await pool.query(
       "SELECT * FROM exchange_assets WHERE ticker = ?",
       [ticker]
@@ -27,32 +35,18 @@ router.post("/deposit", auth, async (req, res) => {
 
     const asset = assetRows[0];
 
-    /* Buscamos wallet existente */
+    /* 2. Wallet existente */
     const [deposit] = await pool.query(
       "SELECT * FROM exchange_wallets WHERE asset_ticker = ? AND network = ? AND user_id = ?",
       [ticker, network, userId]
     );
 
-    /* SI YA EXISTE → devolver */
     if (deposit.length > 0) {
-      if (asset.type === "UTXO") {
-        return res.json({ 
-          address: deposit[0].address 
-        });
-      } else if (asset.type === "TURTLENOTE") {
-        return res.json({ 
-          address: deposit[0].address,
-          payment_id: deposit[0].payment_id,
-          integrated_address: deposit[0].integrated_address
-
-        });
-      } else {
-        return res.status(400).json({error: "Unsupported Type"}) 
-      }  
+      return res.json(formatWallet(asset, deposit[0]));
     }
 
-    /* SI NO EXISTE → generar */
-    let wallet = null;
+    /* 3. Generación */
+    let wallet;
 
     if (asset.type === "UTXO") {
 
@@ -75,7 +69,8 @@ router.post("/deposit", auth, async (req, res) => {
           id: "utxo-deposit",
           method: "getnewaddress",
           params: [`user_${userId}`]
-        })
+        }),
+        signal: AbortSignal.timeout(500) 
       });
 
       const data = await response.json();
@@ -90,12 +85,15 @@ router.post("/deposit", auth, async (req, res) => {
         integrated_address: null,
         memo: null
       };
-      console.log('User ID: ' + userId + '\n' + wallet)
     }
 
     if (asset.type === "TURTLENOTE") {
+
       const randomSalt = crypto.randomBytes(16).toString("hex");
-      const paymentId = crypto.createHash("sha256").update(Date.now().toString() + randomSalt).digest("hex");
+      const paymentId = crypto
+        .createHash("sha256")
+        .update(Date.now().toString() + randomSalt)
+        .digest("hex");
 
       let rpcUrl = asset.rpc_url;
 
@@ -103,11 +101,11 @@ router.post("/deposit", auth, async (req, res) => {
         rpcUrl = "http://" + rpcUrl;
       }
 
-      const response = await fetch(rpcUrl + '/addresses/create', {
+      const response = await fetch(rpcUrl + "/addresses/create", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          'X-API-KEY': process.env.WALLET_RPC_PASSWORD
+          "X-API-KEY": process.env.WALLET_RPC_PASSWORD
         },
         body: JSON.stringify({})
       });
@@ -124,51 +122,69 @@ router.post("/deposit", auth, async (req, res) => {
         integrated_address: coinUtils.createIntegratedAddress(data.address, paymentId),
         memo: null
       };
-      console.log('User ID: ' + userId + '\n' + wallet)
     }
 
     if (!wallet) {
       return res.status(500).json({ error: "Wallet generation failed" });
     }
 
-    /* Guardar en DB */
-    const [insert] = await pool.query(
-      `INSERT INTO exchange_wallets 
-      (user_id, asset_ticker, network, address, payment_id, integrated_address, memo)
-      VALUES (?, ?, ?, ?, ?, ?, ?)`,
-      [
-        userId,
-        ticker,
-        network,
-        wallet.address,
-        wallet.payment_id,
-        wallet.integrated_address,
-        wallet.memo
-      ]
-    );
-    
-    if (asset.type === "UTXO") {
-        return res.json({ 
-          address: wallet.address 
-        });
-    } else if (asset.type === "TURTLENOTE") {
-        return res.json({ 
-          address: wallet.address,
-          payment_id: wallet.payment_id,
-          integrated_address: wallet.integrated_address
+    /* 4. Guardar en DB */
+    try {
+      await pool.query(
+        `INSERT INTO exchange_wallets 
+        (user_id, asset_ticker, network, address, payment_id, integrated_address, memo)
+        VALUES (?, ?, ?, ?, ?, ?, ?)`,
+        [
+          userId,
+          ticker,
+          network,
+          wallet.address,
+          wallet.payment_id,
+          wallet.integrated_address,
+          wallet.memo
+        ]
+      );
+    } catch (err) {
+      if (err.code === "ER_DUP_ENTRY") {
+        const [rows] = await pool.query(
+          `SELECT * FROM exchange_wallets
+           WHERE user_id=? AND asset_ticker=? AND network=?`,
+          [userId, ticker, network]
+        );
 
-        });
-    } else {
-        return res.status(400).json({
-          error: "Unsupported Type"
-        })
-    }     
-    
+        return res.json(formatWallet(asset, rows[0]));
+      }
+
+      throw err;
+    }
+
+    return res.json(formatWallet(asset, wallet));
 
   } catch (err) {
     console.error(err);
-    return res.status(500).json({ error: "Error fetching ticker" });
+    return res.status(500).json({ error: "Internal error" });
+
+  } finally {
+    delete global[lockKey];
   }
 });
+
+
+/* helper */
+function formatWallet(asset, wallet) {
+  if (asset.type === "UTXO") {
+    return { address: wallet.address };
+  }
+
+  if (asset.type === "TURTLENOTE") {
+    return {
+      address: wallet.address,
+      payment_id: wallet.payment_id,
+      integrated_address: wallet.integrated_address
+    };
+  }
+
+  return { address: wallet.address };
+}
 
 module.exports = router;
