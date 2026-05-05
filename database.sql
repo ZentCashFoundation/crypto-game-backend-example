@@ -125,6 +125,22 @@ CREATE TABLE IF NOT EXISTS exchange_market_prices (
   updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
 );
 
+/* This table store orders book */
+CREATE TABLE exchange_orders (
+  id BIGINT AUTO_INCREMENT PRIMARY KEY,
+  user_id INT NOT NULL,
+  pair VARCHAR(20) NOT NULL,
+  side ENUM('buy','sell') NOT NULL,
+  type ENUM('limit','market') NOT NULL,
+  price DECIMAL(32,16) DEFAULT NULL,
+  amount DECIMAL(32,16) NOT NULL,
+  filled DECIMAL(32,16) DEFAULT 0,
+  status ENUM('open','partial','filled','cancelled') DEFAULT 'open',
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  INDEX idx_book (pair, side, price, status),
+  FOREIGN KEY (user_id) REFERENCES users(id)
+);
+
 /* Insert assets */
 INSERT INTO exchange_assets (ticker, name, type) VALUES
 ('BTC', 'Bitcoin', 'UTXO'),
