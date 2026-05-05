@@ -14,6 +14,7 @@ tags:
   - name: Games - Game
   - name: Games - Wallet
   - name: Exchange - Market
+  - name: Exchange - Wallet
 
 
 paths:
@@ -546,6 +547,57 @@ paths:
                         type: string
                         format: date-time
                         example: 2026-04-30T18:58:19.000Z  
+  
+  /exchange/wallet/deposit:
+    post:
+      tags: [Exchange - Wallet]
+      summary: Get deposit address.
+      security:
+       - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [ticket]
+              properties:
+                ticket:
+                  type: string
+                  example: ZTC
+                network:
+                  type: string
+                  example: mainnet  
+      responses:
+        "200":
+          description: Deposit Address.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  address:
+                    type: string
+                    example: Ze355i4pnjf8w1fh7QHZnkEV2qWS2wVA7eSW8B2AVELv5BktYCq5MyBXoz2zy6QpdGHS5mbhDRCtHJGKUrsZmZqf2zuhM7yap
+                  paimend_id:
+                    type: string
+                    example: 649ab054a2d293d76023e4042d32dd83ea74bcb42eae367ce7160ec4189ebed4
+                  integrated_address:
+                    type: string
+                    example: Ze3N3Y7ATZZ9u9n8Jwjj7YHmDcog2tFuD94e1kRcZjaKAQDdmg1ytznHRheSvHFTsjAGLTjuEw6ZrHbQJskSSnWgHm6jQguqX5f8w1fh7QHZnkEV2qWS2wVA7eSW8B2AVELv5BktYCq5MyBXoz2zy6QpdGHS5mbhDRCtHJGKUrsZmZqf2zujhMYns
+                  memo: 
+                    type: string
+                    example: 215569874
+
+        "400":
+          description: Ticker required or unsupported asset.
+        "401":
+          description: Unauthorized. 
+        "429": 
+          description: Wallet generation in progress.
+        "500":
+          description: Wallet generation failed. 
+
 components:
   securitySchemes:
     bearerAuth:
