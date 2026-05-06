@@ -6,6 +6,7 @@ const axios = require("axios");
 const crypto = require("crypto");
 const { CryptoNote } = require("zentcash-utils");
 const coinUtils = new CryptoNote();
+const balanceService = require("../../services/balanceService")(pool);
 
 router.post("/deposit", auth, async (req, res) => {
   const { ticker, network = "mainnet" } = req.body;
@@ -186,6 +187,31 @@ function formatWallet(asset, wallet) {
 
   return { address: wallet.address };
 }
+
+
+router.post("/deposit/mock", auth, async (req, res) => {
+  const conn = await pool.getConnection();
+  const userId = req.user.id;
+  const { asset, amount } = req.body;
+
+  try {
+    await conn.beginTransaction();
+
+    await balanceService.addBalance(conn, userId, asset, Number(amount));
+
+    await conn.commit();
+    res.json({ success: true });
+
+  } catch (err) {
+    await conn.rollback();
+    res.status(500).json({ error: err.message });
+
+  } finally {
+    conn.release();
+  }
+});
+
+
 
 router.get("/balances", auth, async (req, res) => {
   const userId = req.user.id;

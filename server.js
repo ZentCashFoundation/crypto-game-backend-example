@@ -12,6 +12,7 @@ const gameswalletRoutes = require("./routes/games/wallet");
 const gamesgameRoutes = require("./routes/games/game");
 const exchangemarketRoutes = require("./routes/exchange/market");
 const exchangewalletRoutes = require("./routes/exchange/wallet");
+const orderRoutes = require("./routes/exchange/order");
 
 const app = express();
 
@@ -24,6 +25,7 @@ app.use("/api/games/wallet", gameswalletRoutes);
 app.use("/api/games/game", gamesgameRoutes);
 app.use("/api/exchange/market", exchangemarketRoutes);
 app.use("/api/exchange/wallet", exchangewalletRoutes);
+app.use("/api/exchange/order", orderRoutes);
 
 app.get("/", (req, res) => {
   res.json({ message: "Crypto Game Backend Example API Running" });

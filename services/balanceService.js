@@ -1,0 +1,87 @@
+module.exports = (pool) => {
+
+  // -----------------------------------------
+  // ENSURE BALANCE EXISTS
+  // -----------------------------------------
+  async function ensureBalance(conn, userId, asset) {
+    await conn.query(
+      `
+      INSERT IGNORE INTO exchange_balances (user_id, asset_ticker)
+      VALUES (?, ?)
+      `,
+      [userId, asset]
+    );
+  }
+
+  // -----------------------------------------
+  // ADD BALANCE (DEPOSIT)
+  // -----------------------------------------
+  async function addBalance(conn, userId, asset, amount) {
+    await ensureBalance(conn, userId, asset);
+
+    await conn.query(
+      `
+      INSERT INTO exchange_balances (user_id, asset_ticker, available)
+      VALUES (?, ?, ?)
+      ON DUPLICATE KEY UPDATE
+        available = available + VALUES(available)
+      `,
+      [userId, asset, amount]
+    );
+  }
+
+  // -----------------------------------------
+  // LOCK BALANCE (FOR ORDERS)
+  // -----------------------------------------
+  async function lockBalance(conn, userId, asset, amount) {
+    await ensureBalance(conn, userId, asset);
+
+    const [rows] = await conn.query(
+      `
+      SELECT available 
+      FROM exchange_balances
+      WHERE user_id = ? AND asset_ticker = ?
+      FOR UPDATE
+      `,
+      [userId, asset]
+    );
+
+    if (!rows.length || Number(rows[0].available) < amount) {
+      throw new Error("Insufficient balance");
+    }
+
+    await conn.query(
+      `
+      UPDATE exchange_balances
+      SET 
+        available = available - ?,
+        locked = locked + ?
+      WHERE user_id = ? AND asset_ticker = ?
+      `,
+      [amount, amount, userId, asset]
+    );
+  }
+
+  // -----------------------------------------
+  // UNLOCK BALANCE (CANCEL ORDER)
+  // -----------------------------------------
+  async function unlockBalance(conn, userId, asset, amount) {
+    await conn.query(
+      `
+      UPDATE exchange_balances
+      SET 
+        available = available + ?,
+        locked = locked - ?
+      WHERE user_id = ? AND asset_ticker = ?
+      `,
+      [amount, amount, userId, asset]
+    );
+  }
+
+  return {
+    ensureBalance,
+    addBalance,
+    lockBalance,
+    unlockBalance
+  };
+};
