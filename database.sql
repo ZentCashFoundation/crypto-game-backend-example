@@ -98,6 +98,17 @@ CREATE TABLE IF NOT EXISTS exchange_assets (
   requires_memo BOOLEAN DEFAULT 0
 );
 
+/* This table store users balances */
+CREATE TABLE IF NOT EXISTS exchange_balances (
+  user_id INT NOT NULL,
+  asset_ticker VARCHAR(20) NOT NULL,
+  available DECIMAL(32,16) DEFAULT 0,
+  locked DECIMAL(32,16) DEFAULT 0,
+  PRIMARY KEY (user_id, asset_ticker),
+  FOREIGN KEY (user_id) REFERENCES users(id),
+  FOREIGN KEY (asset_ticker) REFERENCES exchange_assets(ticker)
+);
+
 /* This table stores the exchange wallet addresses for each user and asset. */
 CREATE TABLE IF NOT EXISTS exchange_wallets (
   id INT AUTO_INCREMENT PRIMARY KEY,
@@ -126,7 +137,7 @@ CREATE TABLE IF NOT EXISTS exchange_market_prices (
 );
 
 /* This table store orders book */
-CREATE TABLE exchange_orders (
+CREATE TABLE IF NOT EXISTS exchange_orders (
   id BIGINT AUTO_INCREMENT PRIMARY KEY,
   user_id INT NOT NULL,
   pair VARCHAR(20) NOT NULL,

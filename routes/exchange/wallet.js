@@ -187,4 +187,74 @@ function formatWallet(asset, wallet) {
   return { address: wallet.address };
 }
 
+router.get("/balances", auth, async (req, res) => {
+  const userId = req.user.id;
+
+  try {
+    const [rows] = await pool.query(`
+      SELECT 
+        asset_ticker AS asset,
+        available,
+        locked,
+        (available + locked) AS total
+      FROM exchange_balances
+      WHERE user_id = ?
+      ORDER BY asset_ticker ASC
+    `, [userId]);
+
+    const balances = rows.map(b => ({
+      asset: b.asset,
+      available: Number(b.available),
+      locked: Number(b.locked),
+      total: Number(b.total)
+    }));
+
+    return res.json({ balances });
+
+  } catch (err) {
+    console.error(err);
+    return res.status(500).json({ error: "Error fetching balances" });
+  }
+});
+
+router.get("/balance", auth, async (req, res) => {
+  const userId = req.user.id;
+  const { asset } = req.query;
+
+  if (!asset) {
+    return res.status(400).json({ error: "Asset required" });
+  }
+
+  try {
+
+    await pool.query(`
+      INSERT IGNORE INTO exchange_balances (user_id, asset_ticker)
+      VALUES (?, ?)
+    `, [userId, asset]);
+
+    const [rows] = await pool.query(`
+      SELECT 
+        asset_ticker AS asset,
+        available,
+        locked,
+        (available + locked) AS total
+      FROM exchange_balances
+      WHERE user_id = ? AND asset_ticker = ?
+    `, [userId, asset]);
+
+    const b = rows[0];
+
+    return res.json({
+      asset: b.asset,
+      available: Number(b.available),
+      locked: Number(b.locked),
+      total: Number(b.total)
+    });
+
+  } catch (err) {
+    console.error(err);
+    return res.status(500).json({ error: "Error fetching balance" });
+  }
+});
+
 module.exports = router;
