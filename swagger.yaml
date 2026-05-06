@@ -726,21 +726,18 @@ paths:
                   schema:
                     type: object
                     properties:
-                      result:
-                        type: object
-                        properties:
-                          asset:
-                            type: string
-                            example: ZTC
-                          available:
-                            type: string
-                            example: "18"
-                          locked:
-                            type: string
-                            example: "2"
-                          total:
-                            type: string
-                            example: "20"
+                      asset:
+                        type: string
+                        example: ZTC
+                      available:
+                        type: string
+                        example: "18"
+                      locked:
+                        type: string
+                        example: "2"
+                      total:
+                        type: string
+                        example: "20"
             "400":
               description: Asset required.                 
             "500":
