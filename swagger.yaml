@@ -686,24 +686,66 @@ paths:
                       asset:
                         type: string
                       available:
-                        type: number
+                        type: string
                       locked:
-                        type: number
+                        type: string
                       total:
-                        type: number  
+                        type: string  
                 example:
                   balances:
                     - asset: ZTC
-                      available: 15
-                      locked: 2
-                      total: 17
+                      available: "15"
+                      locked: "2"
+                      total: "17"
                     - asset: LTC
-                      available: 1
-                      locked: 1
-                      total: 2
+                      available: "1"
+                      locked: "1"
+                      total: "2"
           "500":
             description: Error fetching balances. 
 
+  /exchange/wallet/balance:
+        get:
+          tags: [Exchange - Wallet]
+          summary: Get balance.
+          security:
+          - bearerAuth: []
+            parameters:
+              - name: asset
+                in: query
+                required: true
+                schema:
+                  type: string
+                  example: ZTC
+                description: Asset Ticker.
+          responses:
+            "200":
+              description: Get Balance.
+              content:
+                application/json:
+                  schema:
+                    type: object
+                    properties:
+                      result:
+                        type: object
+                        properties:
+                          asset:
+                            type: string
+                            example: ZTC
+                          available:
+                            type: string
+                            example: "18"
+                          locked:
+                            type: string
+                            example: "2"
+                          total:
+                            type: number
+                            example: "20"
+            "400":
+              description: Asset required.                 
+            "500":
+              description: Error fetching balance.                            
+                          
 components:
   securitySchemes:
     bearerAuth:
