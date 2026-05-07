@@ -747,7 +747,7 @@ paths:
   /exchange/order:
       post:
         summary: Create a new order
-        tags: [Exchange Orders]
+        tags: [Exchange - Orders]
         security:
           - bearerAuth: []
         requestBody:
