@@ -152,6 +152,24 @@ CREATE TABLE IF NOT EXISTS exchange_orders (
   FOREIGN KEY (user_id) REFERENCES users(id)
 );
 
+/*This table store trades*/
+CREATE TABLE IF NOT EXISTS exchange_trades (
+  id BIGINT AUTO_INCREMENT PRIMARY KEY,
+  pair VARCHAR(20) NOT NULL,
+  buy_order_id BIGINT NOT NULL,
+  sell_order_id BIGINT NOT NULL,
+  buyer_user_id INT NOT NULL,
+  seller_user_id INT NOT NULL,
+  price DECIMAL(32,16) NOT NULL,
+  amount DECIMAL(32,16) NOT NULL,
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  INDEX idx_pair (pair),
+  INDEX idx_buy_order (buy_order_id),
+  INDEX idx_sell_order (sell_order_id),
+  FOREIGN KEY (buy_order_id) REFERENCES exchange_orders(id),
+  FOREIGN KEY (sell_order_id) REFERENCES exchange_orders(id)
+);
+
 /* Insert assets */
 INSERT INTO exchange_assets (ticker, name, type) VALUES
 ('BTC', 'Bitcoin', 'UTXO'),
