@@ -785,36 +785,35 @@ paths:
           "500":
             description: Internal server error
 
-  /exchange/order:
-    get:
-      summary: Get user orders
-      tags: [Exchange - Orders]
-      security:
-        - bearerAuth: []
-      parameters:
-        - in: query
-          name: pair
-          schema:
-            type: string
-          example: ZTC_BTC
- 
-        - in: query
-          name: status
-          schema:
-            type: string
-            enum: [open, partial, filled, cancelled]
- 
-        - in: query
-          name: limit
-          schema:
-            type: integer
-          example: 50
- 
-      responses:
-        "200":
-          description: Orders fetched successfully
-        "500":
-          description: Internal server error
+      get:
+        summary: Get user orders
+        tags: [Exchange - Orders]
+        security:
+          - bearerAuth: []
+        parameters:
+          - in: query
+            name: pair
+            schema:
+              type: string
+            example: ZTC_BTC
+  
+          - in: query
+            name: status
+            schema:
+              type: string
+              enum: [open, partial, filled, cancelled]
+  
+          - in: query
+            name: limit
+            schema:
+              type: integer
+            example: 50
+  
+        responses:
+          "200":
+            description: Orders fetched successfully
+          "500":
+            description: Internal server error     
 
   /exchange/order/{id}:
       delete:
