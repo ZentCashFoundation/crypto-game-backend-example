@@ -66,22 +66,107 @@ module.exports = (pool) => {
   // UNLOCK BALANCE (CANCEL ORDER)
   // -----------------------------------------
   async function unlockBalance(conn, userId, asset, amount) {
-    await conn.query(
-      `
-      UPDATE exchange_balances
-      SET 
-        available = available + ?,
-        locked = locked - ?
-      WHERE user_id = ? AND asset_ticker = ?
-      `,
-      [amount, amount, userId, asset]
-    );
+
+  const [rows] = await conn.query(
+    `
+    SELECT locked
+    FROM exchange_balances
+    WHERE user_id = ?
+      AND asset_ticker = ?
+    FOR UPDATE
+    `,
+    [userId, asset]
+  );
+
+  if (!rows.length) {
+    throw new Error("Balance not found");
   }
+
+  const locked = Number(rows[0].locked);
+
+  if (locked < amount) {
+    throw new Error("Insufficient locked balance");
+  }
+
+  await conn.query(
+    `
+    UPDATE exchange_balances
+    SET
+      available = available + ?,
+      locked = locked - ?
+    WHERE user_id = ?
+      AND asset_ticker = ?
+    `,
+    [amount, amount, userId, asset]
+  );
+}
+
+  async function increaseBalance(conn, userId, asset, amount) {
+  await conn.query(
+    `
+    INSERT INTO exchange_balances
+    (user_id, asset_ticker, available, locked)
+    VALUES (?, ?, ?, 0)
+    ON DUPLICATE KEY UPDATE
+      available = available + VALUES(available)
+    `,
+    [
+      userId,
+      asset,
+      amount
+    ]
+  );
+}
+
+async function decreaseLockedBalance(
+  conn,
+  userId,
+  asset,
+  amount
+) {
+
+  const [rows] = await conn.query(
+    `
+    SELECT locked
+      FROM exchange_balances
+      WHERE user_id = ?
+      AND asset_ticker = ?
+      FOR UPDATE
+    `,
+    [userId, asset]
+  );
+
+  if (!rows.length) {
+    throw new Error("Balance not found");
+  }
+
+  const locked = Number(rows[0].locked);
+
+  if (locked < amount) {
+    throw new Error("Insufficient locked balance");
+  }
+
+  await conn.query(
+    `
+    UPDATE exchange_balances
+    SET locked = locked - ?
+    WHERE user_id = ?
+      AND asset_ticker = ?
+    `,
+    [
+      amount,
+      userId,
+      asset
+    ]
+  );
+}
 
   return {
     ensureBalance,
     addBalance,
     lockBalance,
-    unlockBalance
+    unlockBalance,
+    increaseBalance,
+    decreaseLockedBalance
   };
 };

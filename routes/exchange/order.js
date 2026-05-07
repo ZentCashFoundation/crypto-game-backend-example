@@ -3,9 +3,12 @@ const router = express.Router();
 const auth = require("../../middleware/auth");
 const pool = require("../../db");
 const balanceService = require("../../services/balanceService")(pool);
+const matchingService = require("../../services/matchingService")(pool, balanceService);
 
 router.post("/", auth, async (req, res) => {
+
   const userId = req.user.id;
+
   const {
     pair,
     side,
@@ -14,47 +17,139 @@ router.post("/", auth, async (req, res) => {
     amount
   } = req.body;
 
-  if (!pair || !side || !type || !amount) {
-    return res.status(400).json({ error: "Missing fields" });
+  // -----------------------------------------
+  // VALIDATION
+  // -----------------------------------------
+
+  if (
+    !pair ||
+    !side ||
+    !type ||
+    !amount
+  ) {
+    return res.status(400).json({
+      error: "Missing fields"
+    });
   }
 
-  if (type === "limit" && !price) {
-    return res.status(400).json({ error: "Price required for limit order" });
+  if (!["buy", "sell"].includes(side)) {
+    return res.status(400).json({
+      error: "Invalid side"
+    });
   }
+
+  if (!["limit", "market"].includes(type)) {
+    return res.status(400).json({
+      error: "Invalid type"
+    });
+  }
+
+  if (type !== "limit") {
+  return res.status(400).json({
+    error: "Only limit orders supported for now"
+  });
+}
+
+  if (Number(amount) <= 0) {
+    return res.status(400).json({
+      error: "Invalid amount"
+    });
+  }
+
+  if (type === "limit" && Number(price) <= 0) {
+    return res.status(400).json({
+      error: "Invalid price"
+    });
+  }
+
+  // -----------------------------------------
+  // BEGIN TRANSACTION
+  // -----------------------------------------
 
   const conn = await pool.getConnection();
 
   try {
+
     await conn.beginTransaction();
 
-    // -------------------------------------------------
-    // 1. LOCK BALANCE
-    // -------------------------------------------------
+    // -----------------------------------------
+    // SPLIT PAIR
+    // -----------------------------------------
+
+    const [baseAsset, quoteAsset] =
+      pair.split("_");
+
+    if (!baseAsset || !quoteAsset) {
+      throw new Error("Invalid pair");
+    }
+
+    // -----------------------------------------
+    // LOCK BALANCE
+    // -----------------------------------------
+
     if (side === "sell") {
-      // vendes base asset (BTC en BTC_USDT)
-      const baseAsset = pair.split("_")[0];
-      await balanceService.lockBalance(conn, userId, baseAsset, amount);
+
+      await balanceService.lockBalance(
+        conn,
+        userId,
+        baseAsset,
+        Number(amount)
+      );
+
+    } else {
+
+      const total =
+        Number(price) * Number(amount);
+
+      await balanceService.lockBalance(
+        conn,
+        userId,
+        quoteAsset,
+        total
+      );
     }
 
-    if (side === "buy") {
-      // compras quote asset (USDT en BTC_USDT)
-      const quoteAsset = pair.split("_")[1];
-      const cost = price * amount;
+    // -----------------------------------------
+    // CREATE ORDER
+    // -----------------------------------------
 
-      await balanceService.lockBalance(conn, userId, quoteAsset, cost);
-    }
-
-    // -------------------------------------------------
-    // 2. CREATE ORDER
-    // -------------------------------------------------
     const [result] = await conn.query(
       `
       INSERT INTO exchange_orders
-      (user_id, pair, side, type, price, amount, filled, status)
+      (
+        user_id,
+        pair,
+        side,
+        type,
+        price,
+        amount,
+        filled,
+        status
+      )
       VALUES (?, ?, ?, ?, ?, ?, 0, 'open')
       `,
-      [userId, pair, side, type, price || null, amount]
+      [
+        userId,
+        pair,
+        side,
+        type,
+        price || null,
+        amount
+      ]
     );
+
+    // -----------------------------------------
+    // TRY MATCH
+    // -----------------------------------------
+
+    await matchingService.tryMatch(
+      conn,
+      result.insertId
+    );
+
+    // -----------------------------------------
+    // COMMIT
+    // -----------------------------------------
 
     await conn.commit();
 
@@ -64,11 +159,17 @@ router.post("/", auth, async (req, res) => {
     });
 
   } catch (err) {
+
     await conn.rollback();
+
     console.error(err);
-    return res.status(500).json({ error: err.message });
+
+    return res.status(400).json({
+      error: err.message
+    });
 
   } finally {
+
     conn.release();
   }
 });
