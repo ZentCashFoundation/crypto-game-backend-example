@@ -745,6 +745,47 @@ paths:
               description: Error fetching balance.                            
 
   /exchange/order:
+      post:
+        summary: Create a new order
+        tags: [Exchange Orders]
+        security:
+          - bearerAuth: []
+        requestBody:
+          required: true
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - pair
+                  - side
+                  - type
+                  - amount
+                properties:
+                  pair:
+                    type: string
+                    example: ZTC_BTC
+                  side:
+                    type: string
+                    enum: [buy, sell]
+                  type:
+                    type: string
+                    enum: [limit, market]
+                  price:
+                    type: number
+                    example: 0.00000100
+                  amount:
+                    type: number
+                    example: 6
+        responses:
+          "200":
+            description: Order created successfully
+          "400":
+            description: Invalid request
+          "500":
+            description: Internal server error
+
+  /exchange/order:
     get:
       summary: Get user orders
       tags: [Exchange - Orders]
@@ -755,7 +796,7 @@ paths:
           name: pair
           schema:
             type: string
-          example: BTC_USDT
+          example: ZTC_BTC
  
         - in: query
           name: status
