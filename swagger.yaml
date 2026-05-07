@@ -15,6 +15,7 @@ tags:
   - name: Games - Wallet
   - name: Exchange - Market
   - name: Exchange - Wallet
+  - name: Exchange - Orders
 
 
 paths:
@@ -742,7 +743,60 @@ paths:
               description: Asset required.                 
             "500":
               description: Error fetching balance.                            
-                          
+
+  /exchange/order:
+    get:
+      summary: Get user orders
+      tags: [Exchange - Orders]
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: query
+          name: pair
+          schema:
+            type: string
+          example: BTC_USDT
+ 
+        - in: query
+          name: status
+          schema:
+            type: string
+            enum: [open, partial, filled, cancelled]
+ 
+        - in: query
+          name: limit
+          schema:
+            type: integer
+          example: 50
+ 
+      responses:
+        "200":
+          description: Orders fetched successfully
+        "500":
+          description: Internal server error
+
+  /exchange/order/{id}:
+      delete:
+        summary: Cancel an order
+        tags: [Exchange - Orders]
+        security:
+          - bearerAuth: []
+  
+        parameters:
+          - in: path
+            name: id
+            required: true
+            schema:
+              type: integer
+  
+        responses:
+          "200":
+            description: Order cancelled successfully
+          "400":
+            description: Invalid order
+          "500":
+            description: Internal server error
+
 components:
   securitySchemes:
     bearerAuth:
