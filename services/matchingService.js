@@ -193,12 +193,16 @@ module.exports = (pool, balanceService) => {
         quoteAmount
       );
 
+      await balanceService.createTransaction( conn, buyOrder.user_id, quoteAsset, "trade_out", quoteAmount );
+
       await balanceService.increaseBalance(
         conn,
         buyOrder.user_id,
         baseAsset,
         tradeAmount
       );
+
+      await balanceService.createTransaction( conn, buyOrder.user_id, baseAsset, "trade_in", tradeAmount );
 
       // seller
       await balanceService.decreaseLockedBalance(
@@ -208,12 +212,16 @@ module.exports = (pool, balanceService) => {
         tradeAmount
       );
 
+      await balanceService.createTransaction( conn, sellOrder.user_id, baseAsset, "trade_out", tradeAmount );
+
       await balanceService.increaseBalance(
         conn,
         sellOrder.user_id,
         quoteAsset,
         quoteAmount
       );
+
+      await balanceService.createTransaction( conn, sellOrder.user_id, quoteAsset, "trade_in", quoteAmount );
 
       // -----------------------------------------
       // 7. UPDATE LOOP STATE

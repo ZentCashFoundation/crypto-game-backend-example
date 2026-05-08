@@ -60,6 +60,9 @@ module.exports = (pool) => {
       `,
       [amount, amount, userId, asset]
     );
+
+    await createTransaction(conn, userId, asset, "lock", amount);
+
   }
 
   // -----------------------------------------
@@ -99,9 +102,11 @@ module.exports = (pool) => {
     `,
     [amount, amount, userId, asset]
   );
+
+  await createTransaction(conn, userId, asset, "unlock", amount);
 }
 
-  async function increaseBalance(conn, userId, asset, amount) {
+async function increaseBalance(conn, userId, asset, amount) {
   await conn.query(
     `
     INSERT INTO exchange_balances
@@ -116,6 +121,8 @@ module.exports = (pool) => {
       amount
     ]
   );
+
+  await createTransaction(conn, userId, asset, "deposit", amount);
 }
 
 async function decreaseLockedBalance(
@@ -153,10 +160,40 @@ async function decreaseLockedBalance(
     WHERE user_id = ?
       AND asset_ticker = ?
     `,
-    [
+    [amount, userId, asset]
+  );
+}
+
+async function createTransaction(
+  conn,
+  userId,
+  asset,
+  type,
+  amount,
+  referenceId = null,
+  description = null
+) {
+
+  await conn.query(
+    `
+    INSERT INTO exchange_transactions
+    (
+      user_id,
+      asset_ticker,
+      type,
       amount,
+      reference_id,
+      description
+    )
+    VALUES (?, ?, ?, ?, ?, ?)
+    `,
+    [
       userId,
-      asset
+      asset,
+      type,
+      amount,
+      referenceId,
+      description
     ]
   );
 }
@@ -167,6 +204,7 @@ async function decreaseLockedBalance(
     lockBalance,
     unlockBalance,
     increaseBalance,
-    decreaseLockedBalance
+    decreaseLockedBalance,
+    createTransaction
   };
 };

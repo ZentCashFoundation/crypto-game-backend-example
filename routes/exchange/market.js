@@ -92,4 +92,28 @@ router.get("/orderbook", async (req, res) => {
   }
 });
 
+router.get("/trades", async (req, res) => {
+  const { pair, limit = 50} = req.query;
+
+  if (!pair) {
+    return res.status(400).json({ error: "Pair required" });
+  }
+
+  try {
+    const [trades] = await pool.query(
+      "SELECT id, pair, price, amount, created_at FROM exchange_trades WHERE pair = ? ORDER BY created_at DESC LIMIT ?",
+      [pair, Number(limit)]
+    );
+
+    res.json({ 
+      pair,
+      result: trades
+    });
+
+  } catch (err) {
+    res.status(500).json({ error: "Error fetching pair" });
+  }
+});
+
+
 module.exports = router;

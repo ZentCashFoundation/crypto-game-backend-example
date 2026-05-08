@@ -283,4 +283,56 @@ router.get("/balance", auth, async (req, res) => {
   }
 });
 
+
+router.get("/transactions", auth, async (req, res) => {
+
+  const userId = req.user.id;
+  const { asset, type, limit = 50 } = req.query;
+
+  try {
+
+    let query = `
+      SELECT
+        id,
+        asset_ticker,
+        type,
+        amount,
+        reference_id,
+        description,
+        created_at
+      FROM exchange_transactions
+      WHERE user_id = ?
+    `;
+
+    const params = [userId];
+
+    if (asset) {
+      query += " AND asset_ticker = ?";
+      params.push(asset);
+    }
+
+    if (type) {
+      query += " AND type = ?";
+      params.push(type);
+    }
+
+    query += " ORDER BY created_at DESC LIMIT ?";
+    params.push(Number(limit));
+
+    const [rows] = await pool.query(query, params);
+
+    return res.json({
+      result: rows
+    });
+
+  } catch (err) {
+
+    console.error(err);
+
+    return res.status(500).json({
+      error: "Error fetching transactions"
+    });
+  }
+});
+
 module.exports = router;
