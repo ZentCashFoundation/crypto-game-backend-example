@@ -125,6 +125,33 @@ CREATE TABLE IF NOT EXISTS exchange_wallets (
   FOREIGN KEY (asset_ticker) REFERENCES exchange_assets(ticker)
 );
 
+/* Tracks user cryptocurrency deposits from blockchain transactions,
+ including multi-network and multi-format address support, and records 
+ their confirmation and settlement status.  */
+CREATE TABLE IF NOT EXISTS exchange_deposits (
+  id INT AUTO_INCREMENT PRIMARY KEY,
+  user_id INT NOT NULL,
+  asset_ticker VARCHAR(20) NOT NULL,
+  network VARCHAR(20) NOT NULL DEFAULT 'mainnet',
+  address VARCHAR(255) NOT NULL,
+  payment_id VARCHAR(64) DEFAULT NULL,
+  integrated_address VARCHAR(255) DEFAULT NULL,
+  memo VARCHAR(128) DEFAULT NULL,
+  tag VARCHAR(64) DEFAULT NULL,
+  tx_hash VARCHAR(255) DEFAULT NULL,
+  block_number BIGINT DEFAULT NULL,
+  amount DECIMAL(36,18) DEFAULT 0,
+  confirmations INT DEFAULT 0,
+  status ENUM('pending','confirmed','failed','rejected') DEFAULT 'pending',
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  confirmed_at TIMESTAMP NULL DEFAULT NULL,
+  UNIQUE KEY uniq_deposit (tx_hash, address),
+  KEY idx_user_asset (user_id, asset_ticker),
+  KEY idx_status (status),
+  FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+  FOREIGN KEY (asset_ticker) REFERENCES exchange_assets(ticker)
+);
+
 /* This table stores the current market prices for each trading pair. */
 CREATE TABLE IF NOT EXISTS exchange_market_prices (
   id INT AUTO_INCREMENT PRIMARY KEY,
