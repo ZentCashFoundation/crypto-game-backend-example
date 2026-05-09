@@ -6,7 +6,9 @@ const https = require("https");
 const fs = require("fs");
 
 require("dotenv").config();
-
+const pool = require("./db");
+const balanceService = require("./services/balanceService")(pool);
+const depositWatcher = require("./services/depositWatcher")(pool , balanceService);
 const authRoutes = require("./routes/auth");
 const gameswalletRoutes = require("./routes/games/wallet");
 const gamesgameRoutes = require("./routes/games/game");
@@ -53,3 +55,16 @@ if (process.env.SSL_PRIVATEKEY && process.env.SSL_FULLCHAIN) {
     console.log(chalk.green.bold(`🔒 HTTPS Server running on port ${PORT_SSL}`));
   });
 }
+
+setInterval(async () => {
+
+  try {
+
+    await depositWatcher.scanDeposits();
+
+  } catch (err) {
+
+    console.error(err);
+  }
+
+}, 15000);

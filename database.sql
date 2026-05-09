@@ -206,7 +206,7 @@ CREATE TABLE IF NOT EXISTS exchange_transactions (
   amount DECIMAL(32,16) NOT NULL,
   balance_before DECIMAL(32,16) DEFAULT NULL,
   balance_after DECIMAL(32,16) DEFAULT NULL,
-  reference_id BIGINT DEFAULT NULL,
+  reference_id VARCHAR(255) DEFAULT NULL,
   description VARCHAR(255) DEFAULT NULL,
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
   INDEX idx_user (user_id),
