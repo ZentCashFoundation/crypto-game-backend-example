@@ -95,7 +95,17 @@ CREATE TABLE IF NOT EXISTS exchange_assets (
   rpc_url VARCHAR(255),
   decimals INT DEFAULT 8,
   contract_address VARCHAR(255),
-  requires_memo BOOLEAN DEFAULT 0
+  requires_memo BOOLEAN DEFAULT 0,
+  confirmations_required INT DEFAULT 3,
+  explorer_tx_url VARCHAR(255) DEFAULT NULL,
+  explorer_address_url VARCHAR(255) DEFAULT NULL,
+  deposit_enabled TINYINT(1) DEFAULT 1,
+  withdraw_enabled TINYINT(1) DEFAULT 1,
+  trade_enabled TINYINT(1) DEFAULT 1,
+  maintenance_mode TINYINT(1) DEFAULT 0,
+  min_deposit DECIMAL(36,18) DEFAULT 0,
+  min_withdraw DECIMAL(36,18) DEFAULT 0,
+  withdraw_fee DECIMAL(36,18) DEFAULT 0;
 );
 
 /* This table store users balances */
