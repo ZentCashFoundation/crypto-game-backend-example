@@ -30,30 +30,54 @@ module.exports = (pool, balanceService) => {
     // -----------------------------------------
     // LOAD RECENT TXS
     // -----------------------------------------
-    const response = await fetch(rpcUrl, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "Authorization":
-          "Basic " +
-          Buffer.from(
-            process.env.RPC_USER +
-            ":" +
-            process.env.RPC_PASS
-          ).toString("base64")
-      },
-      body: JSON.stringify({
-        jsonrpc: "1.0",
-        id: "deposit-scan",
-        method: "listtransactions",
-        params: ["*", 100]
-      })
-    });
+    let data;
 
-    const data = await response.json();
+    try {
 
-    if (!response.ok || !data.result) {
-      throw new Error("RPC error");
+      const response = await fetch(rpcUrl, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization":
+            "Basic " +
+            Buffer.from(
+              process.env.RPC_USER +
+              ":" +
+              process.env.RPC_PASS
+            ).toString("base64")
+        },
+        body: JSON.stringify({
+          jsonrpc: "1.0",
+          id: "deposit-scan",
+          method: "listtransactions",
+          params: ["*", 100]
+        })
+      });
+
+      if (!response.ok) {
+        console.error(
+          `[RPC ERROR] ${asset.ticker} daemon offline`
+        );
+        return;
+      }
+
+      data = await response.json();
+
+      if (!data.result) {
+        console.error(
+          `[RPC ERROR] ${asset.ticker} invalid rpc response`
+        );
+        return;
+      }
+
+    } catch (err) {
+
+      console.error(
+        `[RPC ERROR] ${asset.ticker}`,
+        err.message
+      );
+
+      return;
     }
 
     const transactions = data.result;
@@ -282,6 +306,282 @@ module.exports = (pool, balanceService) => {
     }
   }
 
+  async function scanTurtleNoteDeposits(asset) {
+
+    let rpcUrl = asset.rpc_url;
+
+    if (
+      !rpcUrl.startsWith("http://") &&
+      !rpcUrl.startsWith("https://")
+    ) {
+      rpcUrl = "http://" + rpcUrl;
+    }
+
+    // -----------------------------------------
+    // LOAD USER WALLETS
+    // -----------------------------------------
+    const [wallets] = await pool.query(
+      `
+      SELECT *
+      FROM exchange_wallets
+      WHERE asset_ticker = ?
+      `,
+      [asset.ticker]
+    );
+
+    if (!wallets.length) return;
+
+    // -----------------------------------------
+    // GET NETWORK HEIGHT
+    // -----------------------------------------
+    let currentHeight = 0;
+
+    try {
+
+      const statusRes = await fetch(
+        rpcUrl + "/status",
+        {
+          headers: {
+            "Content-Type": "application/json",
+            "X-API-KEY": process.env.WALLET_RPC_PASSWORD
+          }
+        }
+      );
+
+      if (statusRes.ok) {
+        const status = await statusRes.json();
+        currentHeight = Number(status.networkBlockCount || 0);
+      }
+
+    } catch (err) {
+      console.error(`[RPC STATUS ERROR] ${asset.ticker}`, err.message);
+      return;
+    }
+
+    // -----------------------------------------
+    // LOAD TRANSACTIONS
+    // -----------------------------------------
+    let transactions = [];
+
+    try {
+
+      const response = await fetch(
+        rpcUrl + "/transactions",
+        {
+          headers: {
+            "Content-Type": "application/json",
+            "X-API-KEY": process.env.WALLET_RPC_PASSWORD
+          }
+        }
+      );
+
+      if (!response.ok) {
+        console.error(`[RPC ERROR] ${asset.ticker} tx fetch failed`);
+        return;
+      }
+
+      const data = await response.json();
+
+      transactions = data.transactions || [];
+
+    } catch (err) {
+      console.error(`[RPC ERROR] ${asset.ticker}`, err.message);
+      return;
+    }
+
+    // -----------------------------------------
+    // PROCESS TXS
+    // -----------------------------------------
+    for (const tx of transactions) {
+
+      if (!tx.transfers || tx.isCoinbaseTransaction) continue;
+
+      const transfers = Array.isArray(tx.transfers)
+        ? tx.transfers
+        : [tx.transfers];
+
+      for (const transfer of transfers) {
+
+        // -----------------------------------------
+        // NORMALIZE AMOUNT
+        // -----------------------------------------
+        const amount =
+          Number(transfer.amount) /
+          Math.pow(10, asset.decimals);
+
+        // ONLY INCOMING
+        if (amount <= 0) continue;
+
+        // -----------------------------------------
+        // MATCH WALLET
+        // -----------------------------------------
+        const wallet = wallets.find(
+          w => w.address === transfer.address
+        );
+
+        if (!wallet) continue;
+
+        // -----------------------------------------
+        // CONFIRMATIONS
+        // -----------------------------------------
+        const confirmations = tx.blockHeight
+          ? Math.max(
+              0,
+              currentHeight - Number(tx.blockHeight)
+            )
+          : 0;
+
+        const requiredConfirmations =
+          Number(asset.confirmations_required || 10);
+
+        const status =
+          confirmations >= requiredConfirmations
+            ? "confirmed"
+            : "pending";
+
+        // -----------------------------------------
+        // DUPLICATE CHECK
+        // -----------------------------------------
+        const [existing] = await pool.query(
+          `
+          SELECT id, status, amount
+          FROM exchange_deposits
+          WHERE tx_hash = ?
+            AND address = ?
+          LIMIT 1
+          `,
+          [tx.hash, wallet.address]
+        );
+
+        const conn = await pool.getConnection();
+
+        try {
+
+          await conn.beginTransaction();
+
+          // =========================================
+          // NEW DEPOSIT
+          // =========================================
+          if (!existing.length) {
+
+            await conn.query(
+              `
+              INSERT INTO exchange_deposits
+              (
+                user_id,
+                asset_ticker,
+                network,
+                address,
+                payment_id,
+                integrated_address,
+                tx_hash,
+                amount,
+                confirmations,
+                status
+              )
+              VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+              `,
+              [
+                wallet.user_id,
+                wallet.asset_ticker,
+                wallet.network,
+                wallet.address,
+                wallet.payment_id,
+                wallet.integrated_address,
+                tx.hash,
+                amount,
+                confirmations,
+                status
+              ]
+            );
+
+            if (status === "confirmed") {
+
+              await balanceService.addBalance(
+                conn,
+                wallet.user_id,
+                wallet.asset_ticker,
+                amount
+              );
+
+              await balanceService.createTransaction(
+                conn,
+                wallet.user_id,
+                wallet.asset_ticker,
+                "deposit",
+                amount,
+                tx.hash,
+                "TurtleNote deposit"
+              );
+            }
+
+          }
+
+          // =========================================
+          // EXISTING DEPOSIT UPDATE
+          // =========================================
+          else {
+
+            const dbDeposit = existing[0];
+
+            await conn.query(
+              `
+              UPDATE exchange_deposits
+              SET confirmations = ?
+              WHERE id = ?
+              `,
+              [confirmations, dbDeposit.id]
+            );
+
+            if (
+              dbDeposit.status === "pending" &&
+              status === "confirmed"
+            ) {
+
+              await conn.query(
+                `
+                UPDATE exchange_deposits
+                SET status = 'confirmed',
+                    confirmed_at = NOW()
+                WHERE id = ?
+                `,
+                [dbDeposit.id]
+              );
+
+              await balanceService.addBalance(
+                conn,
+                wallet.user_id,
+                wallet.asset_ticker,
+                Number(dbDeposit.amount)
+              );
+
+              await balanceService.createTransaction(
+                conn,
+                wallet.user_id,
+                wallet.asset_ticker,
+                "deposit",
+                Number(dbDeposit.amount),
+                tx.hash,
+                "TurtleNote deposit confirmed"
+              );
+            }
+          }
+
+          await conn.commit();
+
+        } catch (err) {
+
+          await conn.rollback();
+          console.error(err);
+
+        } finally {
+
+          conn.release();
+        }
+      }
+    }
+  }
+
   async function scanDeposits() {
 
     const [assets] = await pool.query(
@@ -299,6 +599,10 @@ module.exports = (pool, balanceService) => {
 
         if (asset.type === "UTXO") {
           await scanUTXODeposits(asset);
+        }
+
+        if (asset.type === "TURTLENOTE") {
+          await scanTurtleNoteDeposits(asset)
         }
 
       } catch (err) {
