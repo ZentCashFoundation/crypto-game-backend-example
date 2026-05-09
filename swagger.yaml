@@ -460,9 +460,6 @@ paths:
     get:
       tags: [Exchange - Market]
       summary: Market related statistics for all markets.
-      security:
-        - bearerAuth: []
-
       responses:
         "200":
           description: List of market tickers.
@@ -503,8 +500,6 @@ paths:
     get:
       tags: [Exchange - Market]
       summary: Market related statistics for a specific market.
-      security:
-        - bearerAuth: []
 
       parameters:
         - in: query
@@ -618,6 +613,86 @@ paths:
               example:
                 error: Error fetching orderbook.                  
   
+  /exchange/market/trades:
+    get:
+      tags: [Exchange - Market]
+      summary: Historical trading orders.
+      description: Returns the historical record of trading orders.
+      parameters:
+        - name: pair
+          in: query
+          required: true
+          schema:
+            type: string
+            example: ZTC_LTC
+          description: Trading pair.
+
+        - name: limit
+          in: query
+          required: false
+          schema:
+            type: integer
+            default: 50
+            example: 50
+          description: Maximum number of historical trades.
+
+      responses:    
+        "200":
+          description: Order history retrieved successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  pair:
+                    type: string
+                    example: ZTC_BTC
+                  result:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        id:
+                          type: integer
+                          example: 7
+                        pair:
+                          type: string
+                          example: ZTC_BTC
+                        price:
+                          type: string
+                          example: "0.0000010000000000"
+                        amount:
+                          type: string
+                          example: "6.0000000000000000"
+                        created_at:
+                          type: string
+                          format: date-time
+                          example: "2026-05-08T18:13:13.000Z"
+              example:
+                pair: ZTC_BTC
+                result:
+                  - id: 7
+                    pair: ZTC_BTC
+                    price: "0.0000010000000000"
+                    amount: "6.0000000000000000"
+                    created_at: "2026-05-08T18:13:13.000Z"
+                  - id: 6
+                    pair: ZTC_BTC
+                    price: "1.0000000000000000"
+                    amount: "100.0000000000000000"
+                    created_at: "2026-05-07T18:46:13.000Z"
+                  - id: 4
+                    pair: ZTC_BTC
+                    price: "1.0000000000000000"
+                    amount: "50.0000000000000000"
+                    created_at: "2026-05-07T18:26:05.000Z"   
+        "400":
+          description: Invalid request.
+          content:
+            application/json:
+              example:
+                error: Pair required.                 
+
   /exchange/wallet/deposit:
     post:
       tags: [Exchange - Wallet]
