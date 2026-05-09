@@ -75,12 +75,18 @@ module.exports = (pool, balanceService) => {
         continue;
       }
 
+      const confirmations =
+        Number(tx.confirmations || 0);
+
+      const requiredConfirmations =
+        Number(asset.confirmations_required || 1);
+
       // -----------------------------------------
-      // DUPLICATE CHECK
+      // CHECK EXISTING DEPOSIT
       // -----------------------------------------
-      const [existing] = await pool.query(
+      const [existingRows] = await pool.query(
         `
-        SELECT id
+        SELECT *
         FROM exchange_deposits
         WHERE tx_hash = ?
           AND address = ?
@@ -92,100 +98,198 @@ module.exports = (pool, balanceService) => {
         ]
       );
 
-      if (existing.length) {
+      // =========================================
+      // NEW DEPOSIT
+      // =========================================
+      if (!existingRows.length) {
+
+        const status =
+          confirmations >= requiredConfirmations
+            ? "confirmed"
+            : "pending";
+
+        const conn = await pool.getConnection();
+
+        try {
+
+          await conn.beginTransaction();
+
+          // -----------------------------------------
+          // INSERT DEPOSIT
+          // -----------------------------------------
+          await conn.query(
+            `
+            INSERT INTO exchange_deposits
+            (
+              user_id,
+              asset_ticker,
+              network,
+              address,
+              tx_hash,
+              amount,
+              confirmations,
+              status
+            )
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+            `,
+            [
+              wallet.user_id,
+              wallet.asset_ticker,
+              wallet.network,
+              wallet.address,
+              tx.txid,
+              Number(tx.amount),
+              confirmations,
+              status
+            ]
+          );
+
+          // -----------------------------------------
+          // CREDIT ONLY IF CONFIRMED
+          // -----------------------------------------
+          if (status === "confirmed") {
+
+            await balanceService.addBalance(
+              conn,
+              wallet.user_id,
+              wallet.asset_ticker,
+              Number(tx.amount)
+            );
+
+            await balanceService.createTransaction(
+              conn,
+              wallet.user_id,
+              wallet.asset_ticker,
+              "deposit",
+              Number(tx.amount),
+              tx.txid,
+              "Blockchain deposit"
+            );
+
+            console.log(
+              `[DEPOSIT CONFIRMED] ${wallet.asset_ticker} ${tx.amount} credited to user ${wallet.user_id}`
+            );
+          }
+
+          await conn.commit();
+
+        } catch (err) {
+
+          await conn.rollback();
+
+          console.error(err);
+
+        } finally {
+
+          conn.release();
+        }
+
         continue;
       }
 
+      // =========================================
+      // EXISTING DEPOSIT
+      // =========================================
+      const existing = existingRows[0];
+
       // -----------------------------------------
-      // BEGIN TX
+      // UPDATE CONFIRMATIONS
       // -----------------------------------------
-      const conn = await pool.getConnection();
+      await pool.query(
+        `
+        UPDATE exchange_deposits
+        SET confirmations = ?
+        WHERE id = ?
+        `,
+        [
+          confirmations,
+          existing.id
+        ]
+      );
 
-      try {
+      // -----------------------------------------
+      // PENDING -> CONFIRMED
+      // -----------------------------------------
+      if (
+        existing.status === "pending" &&
+        confirmations >= requiredConfirmations
+      ) {
 
-        await conn.beginTransaction();
+        const conn = await pool.getConnection();
 
-        // -----------------------------------------
-        // INSERT DEPOSIT
-        // -----------------------------------------
-        await conn.query(
-          `
-          INSERT INTO exchange_deposits
-          (
-            user_id,
-            asset_ticker,
-            network,
-            address,
-            tx_hash,
-            amount,
-            confirmations,
-            status
-          )
-          VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-          `,
-          [
+        try {
+
+          await conn.beginTransaction();
+
+          // -----------------------------------------
+          // UPDATE STATUS
+          // -----------------------------------------
+          await conn.query(
+            `
+            UPDATE exchange_deposits
+            SET
+              status = 'confirmed',
+              confirmed_at = NOW(),
+              confirmations = ?
+            WHERE id = ?
+            `,
+            [
+              confirmations,
+              existing.id
+            ]
+          );
+
+          // -----------------------------------------
+          // CREDIT BALANCE
+          // -----------------------------------------
+          await balanceService.addBalance(
+            conn,
             wallet.user_id,
             wallet.asset_ticker,
-            wallet.network,
-            wallet.address,
-            tx.txid,
-            Number(tx.amount),
-            Number(tx.confirmations || 0),
-            "confirmed"
-          ]
-        );
+            Number(existing.amount)
+          );
 
-        // -----------------------------------------
-        // CREDIT BALANCE
-        // -----------------------------------------
-        await balanceService.addBalance(
-          conn,
-          wallet.user_id,
-          wallet.asset_ticker,
-          Number(tx.amount)
-        );
+          // -----------------------------------------
+          // CREATE TRANSACTION
+          // -----------------------------------------
+          await balanceService.createTransaction(
+            conn,
+            wallet.user_id,
+            wallet.asset_ticker,
+            "deposit",
+            Number(existing.amount),
+            existing.tx_hash,
+            "Blockchain deposit confirmed"
+          );
 
-        // -----------------------------------------
-        // CREATE TRANSACTION LOG
-        // -----------------------------------------
-        await balanceService.createTransaction(
-          conn,
-          wallet.user_id,
-          wallet.asset_ticker,
-          "deposit",
-          Number(tx.amount),
-          tx.txid,
-          "Blockchain deposit"
-        );
+          await conn.commit();
 
-        await conn.commit();
+          console.log(
+            `[DEPOSIT CONFIRMED] ${wallet.asset_ticker} ${existing.amount} credited to user ${wallet.user_id}`
+          );
 
-        console.log(
-          `[DEPOSIT] ${wallet.asset_ticker} ${tx.amount} credited to user ${wallet.user_id}`
-        );
+        } catch (err) {
 
-      } catch (err) {
+          await conn.rollback();
 
-        await conn.rollback();
+          console.error(err);
 
-        console.error(err);
+        } finally {
 
-      } finally {
-
-        conn.release();
+          conn.release();
+        }
       }
     }
   }
 
   async function scanDeposits() {
 
-    // -----------------------------------------
-    // LOAD ASSETS
-    // -----------------------------------------
     const [assets] = await pool.query(
       `
       SELECT *
       FROM exchange_assets
+      WHERE deposit_enabled = 1
+        AND maintenance_mode = 0
       `
     );
 
@@ -201,7 +305,7 @@ module.exports = (pool, balanceService) => {
 
         console.error(
           `[DEPOSIT WATCHER ERROR] ${asset.ticker}`,
-          err.message
+          err
         );
       }
     }
