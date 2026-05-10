@@ -819,6 +819,122 @@ paths:
             "500":
               description: Error fetching balance.                            
 
+  /exchange/wallet/transactions:
+    get:
+      tags:
+        - Exchange - Wallet
+      summary: Exchange transaction history.
+      security:
+        - bearerAuth: []
+
+      parameters:
+        - name: asset
+          in: query
+          schema:
+            type: string
+            example: ZTC
+          description: Asset ticker.
+
+        - name: type
+          in: query
+          schema:
+            type: string
+            enum:
+              - deposit
+              - withdraw
+              - trade_in
+              - trade_out
+              - lock
+              - unlock
+          description: Transaction type.
+
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            example: 50
+          description: Number of transactions to return.
+
+      responses:
+        "200":
+          description: Exchange transaction history retrieved successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  result:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        id:
+                          type: integer
+                          example: 16
+
+                        asset_ticker:
+                          type: string
+                          example: ZTC
+
+                        type:
+                          type: string
+                          enum:
+                            - deposit
+                            - withdraw
+                            - trade_in
+                            - trade_out
+                            - lock
+                            - unlock
+                          example: deposit
+
+                        amount:
+                          type: string
+                          example: "900.0000000000000000"
+
+                        reference_id:
+                          type: string
+                          nullable: true
+                          example: "dc4821aa9b1412db39d5933a082a697471dd9e88f94eb8ba03993a1dfcbe3b74"
+
+                        description:
+                          type: string
+                          nullable: true
+                          example: "ZentCash deposit confirmed"
+
+                        created_at:
+                          type: string
+                          format: date-time
+                          example: "2026-05-09T22:12:16.000Z"
+
+              example:
+                result:
+                  - id: 16
+                    asset_ticker: ZTC
+                    type: deposit
+                    amount: "900.0000000000000000"
+                    reference_id: "dc4821aa9b1412db39d5933a082a697471dd9e88f94eb8ba03993a1dfcbe3b74"
+                    description: "ZentCash deposit confirmed"
+                    created_at: "2026-05-09T22:12:16.000Z"
+
+                  - id: 8
+                    asset_ticker: ZTC
+                    type: trade_out
+                    amount: "6.0000000000000000"
+                    reference_id: null
+                    description: null
+                    created_at: "2026-05-08T18:13:14.000Z"
+
+                  - id: 10
+                    asset_ticker: BTC
+                    type: trade_in
+                    amount: "0.0000060000000000"
+                    reference_id: null
+                    description: null
+                    created_at: "2026-05-08T18:13:14.000Z"
+
+        "500":
+          description: Error fetching transactions.  
+
   /exchange/order:
       post:
         summary: Create a new order
