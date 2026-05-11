@@ -8,6 +8,7 @@ info:
 
 servers:
   - url: https://api.games.zent.cash:3000/api
+  - url: http://127.0.0.1:3001/api
   
 tags:
   - name: Auth
@@ -16,7 +17,8 @@ tags:
   - name: Exchange - Market
   - name: Exchange - Wallet
   - name: Exchange - Orders
-
+  - name: Exchange - Trades
+  - name: Exchange - Audit
 
 paths:
   /auth/register:
@@ -779,7 +781,6 @@ paths:
           "500":
             description: Internal server error        
 
-
   /exchange/wallet/balances:
       get:
         tags: [Exchange - Wallet]
@@ -1065,6 +1066,100 @@ paths:
           "500":
             description: Internal server error
 
+  /exchange/audit:
+    get:
+      summary: Audit funds. Administrators only.
+      tags:
+        - Exchange - Audit
+
+      security:
+        - bearerAuth: []
+
+      responses:
+        "200":
+          description: Exchange balances and ledger retrieved successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  balances:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        user_id:
+                          type: integer
+                          example: 3
+
+                        asset_ticker:
+                          type: string
+                          example: BTC
+
+                        available:
+                          type: string
+                          example: "1000.0000000000000000"
+
+                        locked:
+                          type: string
+                          example: "0.0000000000000000"
+
+                        total:
+                          type: string
+                          example: "1000.0000000000000000"
+
+                  ledger:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        user_id:
+                          type: integer
+                          example: 6
+
+                        asset_ticker:
+                          type: string
+                          example: BTC
+
+                        expected_total:
+                          type: string
+                          example: "0.0000120000000000"
+
+              example:
+                balances:
+                  - user_id: 3
+                    asset_ticker: BTC
+                    available: "1000.0000000000000000"
+                    locked: "0.0000000000000000"
+                    total: "1000.0000000000000000"
+
+                  - user_id: 3
+                    asset_ticker: ZTC
+                    available: "150.0000000000000000"
+                    locked: "0.0000000000000000"
+                    total: "150.0000000000000000"
+
+                  - user_id: 5
+                    asset_ticker: BTC
+                    available: "899.9999940000000000"
+                    locked: "0.0000000000000000"
+                    total: "899.9999940000000000"
+
+                ledger:
+                  - user_id: 6
+                    asset_ticker: BTC
+                    expected_total: "0.0000120000000000"
+
+                  - user_id: 5
+                    asset_ticker: BTC
+                    expected_total: "-0.0000120000000000"
+
+        "403":
+          description: Access denied. Administrator privileges required.
+
+        "500":
+          description: Error retrieving audit data.    
+        
 components:
   securitySchemes:
     bearerAuth:
