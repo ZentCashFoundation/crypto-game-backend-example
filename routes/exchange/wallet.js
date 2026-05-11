@@ -88,6 +88,57 @@ router.post("/deposit", auth, async (req, res) => {
       };
     }
 
+    if (asset.type === "CRYPTONOTE") {
+
+      let rpcUrl = asset.rpc_url;
+
+      if (!rpcUrl.startsWith("http://") && !rpcUrl.startsWith("https://")) {
+        rpcUrl = "http://" + rpcUrl;
+      }
+
+      const response = await fetch(rpcUrl + "/json_rpc", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          jsonrpc: "2.0",
+          id: "cryptonote-create-address",
+          method: "create_address",
+          params: {
+            account_index: 0,
+            label: `user_${userId}`
+          }
+        }),
+        signal: AbortSignal.timeout(5000)
+      });
+
+      const data = await response.json();
+
+      if (
+        !response.ok ||
+        data.error ||
+        !data.result ||
+        !data.result.address
+      ) {
+        return res.status(500).json({
+          error: data.error?.message || "RPC error generating address"
+        });
+      }
+
+      const paymentId = crypto.randomBytes(8).toString("hex");
+
+      // Monero forks do not support Subwallet and Integrated Address simultaneously.
+
+      wallet = {
+        address: data.result.address,
+        address_index: data.result.address_index,
+        payment_id: paymentId,
+        integrated_address: null,
+        memo: null
+      };
+    }
+
     if (asset.type === "TURTLENOTE") {
 
       const randomSalt = crypto.randomBytes(16).toString("hex");
@@ -176,6 +227,13 @@ function formatWallet(asset, wallet) {
   if (asset.type === "UTXO") {
     return { address: wallet.address };
   }
+
+  if (asset.type === "CRYPTONOTE") {
+    return {
+      address: wallet.address,
+      payment_id: wallet.payment_id
+    };
+  }  
 
   if (asset.type === "TURTLENOTE") {
     return {
