@@ -17,7 +17,7 @@ tags:
   - name: Exchange - Market
   - name: Exchange - Wallet
   - name: Exchange - Orders
-  - name: Exchange - Traders
+  - name: Exchange - Trades
   - name: Exchange - Audit
 
 paths:
@@ -615,7 +615,7 @@ paths:
               example:
                 error: Error fetching orderbook.                  
   
-  /exchange/market/traders:
+  /exchange/market/trades:
     get:
       tags: [Exchange - Market]
       summary: Historical trading orders.
@@ -1066,9 +1066,9 @@ paths:
           "500":
             description: Internal server error
 
-  /exchange/trader:
+  /exchange/trade:
       get:
-        tags: [Exchange - Traders]
+        tags: [Exchange - Trades]
         summary: A user's purchase and sale order history.
         description: Returns the historical record of trading orders.
         security:
