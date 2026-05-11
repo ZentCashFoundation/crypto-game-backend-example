@@ -194,6 +194,17 @@ router.post("/deposit/mock", auth, async (req, res) => {
   const userId = req.user.id;
   const { asset, amount } = req.body;
 
+  const [userCheck] = await pool.query(
+    "SELECT role FROM users WHERE id = ?",
+    [userId]
+  );
+    
+  const user = userCheck[0];
+    
+  if (!user || user.role !== "admin") {
+    return res.status(403).json({ error: "Forbidden" });
+  }
+
   try {
     await conn.beginTransaction();
 

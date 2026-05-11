@@ -3,9 +3,19 @@ const router = express.Router();
 const auth = require("../../middleware/auth");
 const pool = require("../../db");
 
-router.get("/", async (req, res) => {
-
+router.get("/", auth, async (req, res) => {
+  const userId = req.user.id;
   try {
+    const [userCheck] = await pool.query(
+      "SELECT role FROM users WHERE id = ?",
+      [userId]
+    );
+    
+    const user = userCheck[0];
+    
+    if (!user || user.role !== "admin") {
+      return res.status(403).json({ error: "Forbidden" });
+    }
 
     const [rows] = await pool.query(`
       SELECT
