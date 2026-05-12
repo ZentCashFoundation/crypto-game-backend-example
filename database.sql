@@ -125,6 +125,7 @@ CREATE TABLE IF NOT EXISTS exchange_wallets (
   user_id INT NOT NULL,
   asset_ticker VARCHAR(20) NOT NULL,
   network VARCHAR(20) NOT NULL DEFAULT 'mainnet',
+  account VARCHAR(255) DEFAULT NULL,
   address VARCHAR(255) NOT NULL,
   payment_id VARCHAR(64) DEFAULT NULL,
   integrated_address VARCHAR(255) DEFAULT NULL,

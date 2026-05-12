@@ -82,6 +82,7 @@ router.post("/deposit", auth, async (req, res) => {
 
       wallet = {
         address: data.result,
+        account: null,
         payment_id: null,
         integrated_address: null,
         memo: null
@@ -92,26 +93,30 @@ router.post("/deposit", auth, async (req, res) => {
 
       let rpcUrl = asset.rpc_url;
 
-      if (!rpcUrl.startsWith("http://") && !rpcUrl.startsWith("https://")) {
+      if (
+        !rpcUrl.startsWith("http://") &&
+        !rpcUrl.startsWith("https://")
+      ) {
         rpcUrl = "http://" + rpcUrl;
       }
 
-      const response = await fetch(rpcUrl + "/json_rpc", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          jsonrpc: "2.0",
-          id: "cryptonote-create-address",
-          method: "create_address",
-          params: {
-            account_index: 0,
-            label: `user_${userId}`
-          }
-        }),
-        signal: AbortSignal.timeout(5000)
-      });
+      const response = await fetch(
+        rpcUrl + "/json_rpc",
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            jsonrpc: "2.0",
+            id: "cryptonote-create-account",
+            method: "create_account",
+            params: {
+              label: `user_${userId}`
+            }
+          }),
+        }
+      );
 
       const data = await response.json();
 
@@ -122,18 +127,16 @@ router.post("/deposit", auth, async (req, res) => {
         !data.result.address
       ) {
         return res.status(500).json({
-          error: data.error?.message || "RPC error generating address"
+          error:
+            data.error?.message ||
+            "RPC error generating address"
         });
       }
 
-      const paymentId = crypto.randomBytes(8).toString("hex");
-
-      // Monero forks do not support Subwallet and Integrated Address simultaneously.
-
       wallet = {
         address: data.result.address,
-        address_index: data.result.address_index,
-        payment_id: paymentId,
+        account: data.result.account_index,
+        payment_id: null,
         integrated_address: null,
         memo: null
       };
@@ -170,6 +173,7 @@ router.post("/deposit", auth, async (req, res) => {
 
       wallet = {
         address: data.address,
+        account: null,
         payment_id: paymentId,
         integrated_address: coinUtils.createIntegratedAddress(data.address, paymentId),
         memo: null
@@ -184,13 +188,14 @@ router.post("/deposit", auth, async (req, res) => {
     try {
       await pool.query(
         `INSERT INTO exchange_wallets 
-        (user_id, asset_ticker, network, address, payment_id, integrated_address, memo)
-        VALUES (?, ?, ?, ?, ?, ?, ?)`,
+        (user_id, asset_ticker, network, address, account, payment_id, integrated_address, memo)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
         [
           userId,
           ticker,
           network,
           wallet.address,
+          wallet.account,
           wallet.payment_id,
           wallet.integrated_address,
           wallet.memo

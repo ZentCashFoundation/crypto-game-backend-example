@@ -306,6 +306,307 @@ module.exports = (pool, balanceService) => {
     }
   }
 
+  async function scanCryptonoteDeposits(asset) {
+
+    let rpcUrl = asset.rpc_url;
+
+    if (
+      !rpcUrl.startsWith("http://") &&
+      !rpcUrl.startsWith("https://")
+    ) {
+      rpcUrl = "http://" + rpcUrl;
+    }
+
+    // -----------------------------------------
+    // LOAD USER WALLETS
+    // -----------------------------------------
+    const [wallets] = await pool.query(
+      `
+      SELECT *
+      FROM exchange_wallets
+      WHERE asset_ticker = ?
+      `,
+      [asset.ticker]
+    );
+
+    if (!wallets.length) {
+      return;
+    }
+
+    // -----------------------------------------
+    // PROCESS EACH ACCOUNT
+    // -----------------------------------------
+    for (const wallet of wallets) {
+
+      let transfers = [];
+
+      try {
+
+        // -----------------------------------------
+        // LOAD ACCOUNT TRANSFERS
+        // -----------------------------------------
+        const response = await fetch(
+          rpcUrl + "/json_rpc",
+          {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json"
+            },
+            body: JSON.stringify({
+              jsonrpc: "2.0",
+              id: "0",
+              method: "get_transfers",
+              params: {
+                in: true,
+                account_index: Number(wallet.account)
+              }
+            }),
+            signal: AbortSignal.timeout(10000)
+          }
+        );
+
+        if (!response.ok) {
+
+          console.error(
+            `[RPC ERROR] ${asset.ticker} get_transfers failed for account ${wallet.account}`
+          );
+
+          continue;
+        }
+
+        const data = await response.json();
+
+        if (data.error) {
+
+          console.error(
+            `[RPC ERROR] ${asset.ticker}`,
+            data.error.message
+          );
+
+          continue;
+        }
+
+        transfers = data.result?.in || [];
+
+      } catch (err) {
+
+        console.error(
+          `[RPC ERROR] ${asset.ticker}`,
+          err.message
+        );
+
+        continue;
+      }
+
+      // -----------------------------------------
+      // PROCESS TRANSFERS
+      // -----------------------------------------
+      for (const tx of transfers) {
+
+        // -----------------------------------------
+        // NORMALIZE AMOUNT
+        // -----------------------------------------
+        const amount =
+          Number(tx.amount) /
+          Math.pow(10, asset.decimals);
+
+        if (amount <= 0) {
+          continue;
+        }
+
+        // -----------------------------------------
+        // TX HASH
+        // -----------------------------------------
+        const txHash =
+          tx.txid ||
+          tx.tx_hash ||
+          tx.hash;
+
+        if (!txHash) {
+          continue;
+        }
+
+        // -----------------------------------------
+        // CONFIRMATIONS
+        // -----------------------------------------
+        const confirmations =
+          Number(tx.confirmations || 0);
+
+        const requiredConfirmations =
+          Number(asset.confirmations_required || 10);
+
+        const status =
+          confirmations >= requiredConfirmations
+            ? "confirmed"
+            : "pending";
+
+        // -----------------------------------------
+        // DUPLICATE CHECK
+        // -----------------------------------------
+        const [existing] = await pool.query(
+          `
+          SELECT id, status, amount
+          FROM exchange_deposits
+          WHERE tx_hash = ?
+            AND address = ?
+          LIMIT 1
+          `,
+          [
+            txHash,
+            wallet.address
+          ]
+        );
+
+        const conn = await pool.getConnection();
+
+        try {
+
+          await conn.beginTransaction();
+
+          // =========================================
+          // NEW DEPOSIT
+          // =========================================
+          if (!existing.length) {
+
+            await conn.query(
+              `
+              INSERT INTO exchange_deposits
+              (
+                user_id,
+                asset_ticker,
+                network,
+                address,
+                payment_id,
+                integrated_address,
+                tx_hash,
+                amount,
+                confirmations,
+                status
+              )
+              VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+              `,
+              [
+                wallet.user_id,
+                wallet.asset_ticker,
+                wallet.network,
+                wallet.address,
+                wallet.payment_id,
+                wallet.integrated_address,
+                txHash,
+                amount,
+                confirmations,
+                status
+              ]
+            );
+
+            // -----------------------------------------
+            // CREDIT ONLY IF CONFIRMED
+            // -----------------------------------------
+            if (status === "confirmed") {
+
+              await balanceService.addBalance(
+                conn,
+                wallet.user_id,
+                wallet.asset_ticker,
+                amount
+              );
+
+              await balanceService.createTransaction(
+                conn,
+                wallet.user_id,
+                wallet.asset_ticker,
+                "deposit",
+                amount,
+                txHash,
+                `${asset.name} - Cryptonote deposit`
+              );
+
+              console.log(
+                `${asset.name} - [CRYPTONOTE DEPOSIT CONFIRMED] ${asset.ticker} ${amount} credited to user ${wallet.user_id}`
+              );
+            }
+          }
+
+          // =========================================
+          // EXISTING DEPOSIT
+          // =========================================
+          else {
+
+            const dbDeposit = existing[0];
+
+            // -----------------------------------------
+            // UPDATE CONFIRMATIONS
+            // -----------------------------------------
+            await conn.query(
+              `
+              UPDATE exchange_deposits
+              SET confirmations = ?
+              WHERE id = ?
+              `,
+              [
+                confirmations,
+                dbDeposit.id
+              ]
+            );
+
+            // -----------------------------------------
+            // PENDING -> CONFIRMED
+            // -----------------------------------------
+            if (
+              dbDeposit.status === "pending" &&
+              status === "confirmed"
+            ) {
+
+              await conn.query(
+                `
+                UPDATE exchange_deposits
+                SET
+                  status = 'confirmed',
+                  confirmed_at = NOW()
+                WHERE id = ?
+                `,
+                [dbDeposit.id]
+              );
+
+              await balanceService.addBalance(
+                conn,
+                wallet.user_id,
+                wallet.asset_ticker,
+                Number(dbDeposit.amount)
+              );
+
+              await balanceService.createTransaction(
+                conn,
+                wallet.user_id,
+                wallet.asset_ticker,
+                "deposit",
+                Number(dbDeposit.amount),
+                txHash,
+                `${asset.name} - Cryptonote deposit confirmed`
+              );
+
+              console.log(
+                `${asset.name} - [CRYPTONOTE DEPOSIT CONFIRMED] ${asset.ticker} ${dbDeposit.amount} credited to user ${wallet.user_id}`
+              );
+            }
+          }
+
+          await conn.commit();
+
+        } catch (err) {
+
+          await conn.rollback();
+
+          console.error(err);
+
+        } finally {
+
+          conn.release();
+        }
+      }
+    }
+  }
+
   async function scanTurtleNoteDeposits(asset) {
 
     let rpcUrl = asset.rpc_url;
@@ -600,6 +901,10 @@ module.exports = (pool, balanceService) => {
         if (asset.type === "UTXO") {
           await scanUTXODeposits(asset);
         }
+
+        if (asset.type === "CRYPTONOTE") {
+          await scanCryptonoteDeposits(asset)
+        }        
 
         if (asset.type === "TURTLENOTE") {
           await scanTurtleNoteDeposits(asset)
