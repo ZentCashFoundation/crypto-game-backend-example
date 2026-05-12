@@ -709,7 +709,7 @@ paths:
               type: object
               required: [ticket]
               properties:
-                ticket:
+                ticker:
                   type: string
                   example: ZTC
                 network:
@@ -726,7 +726,7 @@ paths:
                   address:
                     type: string
                     example: Ze355i4pnjf8w1fh7QHZnkEV2qWS2wVA7eSW8B2AVELv5BktYCq5MyBXoz2zy6QpdGHS5mbhDRCtHJGKUrsZmZqf2zuhM7yap
-                  paimend_id:
+                  payment_id:
                     type: string
                     example: 649ab054a2d293d76023e4042d32dd83ea74bcb42eae367ce7160ec4189ebed4
                   integrated_address:
