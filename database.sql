@@ -163,6 +163,39 @@ CREATE TABLE IF NOT EXISTS exchange_deposits (
   FOREIGN KEY (asset_ticker) REFERENCES exchange_assets(ticker)
 );
 
+/* Stores user cryptocurrency withdrawals, blockchain 
+transaction data, processing status, confirmations,
+and network-specific metadata. */
+CREATE TABLE IF NOT EXISTS exchange_withdrawals (
+  id BIGINT AUTO_INCREMENT PRIMARY KEY,
+  user_id INT NOT NULL,
+  asset_ticker VARCHAR(20) NOT NULL,
+  network VARCHAR(20) NOT NULL DEFAULT 'mainnet',
+  address VARCHAR(255) NOT NULL,
+  payment_id VARCHAR(128) DEFAULT NULL,
+  integrated_address VARCHAR(255) DEFAULT NULL,
+  memo VARCHAR(255) DEFAULT NULL,
+  tag VARCHAR(128) DEFAULT NULL,
+  account_index INT DEFAULT NULL,
+  tx_hash VARCHAR(255) DEFAULT NULL,
+  block_number BIGINT DEFAULT NULL,
+  amount DECIMAL(36,18) NOT NULL,
+  fee DECIMAL(36,18) DEFAULT 0,
+  confirmations INT DEFAULT 0,
+  status ENUM('pending', 'processing', 'broadcasted','confirmed','failed','cancelled') DEFAULT 'pending',
+  error_message TEXT DEFAULT NULL,
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  processed_at TIMESTAMP NULL DEFAULT NULL,
+  confirmed_at TIMESTAMP NULL DEFAULT NULL,
+  UNIQUE KEY uniq_tx_hash (tx_hash),
+  KEY idx_user (user_id),
+  KEY idx_asset (asset_ticker),
+  KEY idx_status (status),
+  KEY idx_created (created_at),
+  FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+  FOREIGN KEY (asset_ticker) REFERENCES exchange_assets(ticker)
+);
+
 /* This table stores the current market prices for each trading pair. */
 CREATE TABLE IF NOT EXISTS exchange_market_prices (
   id INT AUTO_INCREMENT PRIMARY KEY,

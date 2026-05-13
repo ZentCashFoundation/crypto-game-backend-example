@@ -12,6 +12,7 @@ const depositWatcher = require("./services/depositWatcher")(pool , balanceServic
 const authRoutes = require("./routes/auth");
 const gameswalletRoutes = require("./routes/games/wallet");
 const gamesgameRoutes = require("./routes/games/game");
+const assetRoutes = require("./routes/exchange/asset")
 const exchangemarketRoutes = require("./routes/exchange/market");
 const exchangewalletRoutes = require("./routes/exchange/wallet");
 const orderRoutes = require("./routes/exchange/order");
@@ -27,6 +28,7 @@ app.use(express.json());
 app.use("/api/auth", authRoutes);
 app.use("/api/games/wallet", gameswalletRoutes);
 app.use("/api/games/game", gamesgameRoutes);
+app.use("/api/exchange/asset", assetRoutes);
 app.use("/api/exchange/market", exchangemarketRoutes);
 app.use("/api/exchange/wallet", exchangewalletRoutes);
 app.use("/api/exchange/order", orderRoutes);
