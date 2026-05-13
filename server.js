@@ -9,6 +9,7 @@ require("dotenv").config();
 const pool = require("./db");
 const balanceService = require("./services/balanceService")(pool);
 const depositWatcher = require("./services/depositWatcher")(pool , balanceService);
+const withdrawalProcessor = require("./services/withdrawalProcessor")(pool, balanceService);
 const authRoutes = require("./routes/auth");
 const gameswalletRoutes = require("./routes/games/wallet");
 const gamesgameRoutes = require("./routes/games/game");
@@ -64,6 +65,19 @@ setInterval(async () => {
   try {
 
     await depositWatcher.scanDeposits();
+
+  } catch (err) {
+
+    console.error(err);
+  }
+
+}, 15000);
+
+setInterval(async () => {
+
+  try {
+
+    await withdrawalProcessor.processWithdrawals();
 
   } catch (err) {
 

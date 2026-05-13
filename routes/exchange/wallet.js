@@ -226,7 +226,6 @@ router.post("/deposit", auth, async (req, res) => {
   }
 });
 
-
 /* helper */
 function formatWallet(asset, wallet) {
   if (asset.type === "UTXO") {
@@ -250,7 +249,6 @@ function formatWallet(asset, wallet) {
 
   return { address: wallet.address };
 }
-
 
 router.post("/deposit/mock", auth, async (req, res) => {
   const conn = await pool.getConnection();
@@ -284,8 +282,6 @@ router.post("/deposit/mock", auth, async (req, res) => {
     conn.release();
   }
 });
-
-
 
 router.get("/balances", auth, async (req, res) => {
   const userId = req.user.id;
@@ -357,6 +353,259 @@ router.get("/balance", auth, async (req, res) => {
   }
 });
 
+router.post("/withdraw", auth, async (req, res) => {
+
+  const {
+    ticker,
+    amount,
+    address,
+    payment_id = null,
+    integrated_address = null,
+    memo = null,
+    tag = null,
+    network = "mainnet"
+  } = req.body;
+
+  const userId = req.user.id;
+
+  // -----------------------------------------
+  // VALIDATION
+  // -----------------------------------------
+  if (!ticker || !amount || !address) {
+    return res.status(400).json({
+      error: "ticker, amount and address are required"
+    });
+  }
+
+  const parsedAmount = Number(amount);
+
+  if (
+    Number.isNaN(parsedAmount) ||
+    parsedAmount <= 0
+  ) {
+    return res.status(400).json({
+      error: "Invalid amount"
+    });
+  }
+
+  const conn = await pool.getConnection();
+
+  try {
+
+    await conn.beginTransaction();
+
+    // -----------------------------------------
+    // LOAD ASSET
+    // -----------------------------------------
+    const [assets] = await conn.query(
+      `
+      SELECT *
+      FROM exchange_assets
+      WHERE ticker = ?
+      LIMIT 1
+      `,
+      [ticker]
+    );
+
+    if (!assets.length) {
+
+      await conn.rollback();
+
+      return res.status(400).json({
+        error: "Unsupported asset"
+      });
+    }
+
+    const asset = assets[0];
+
+    // -----------------------------------------
+    // WITHDRAW ENABLED
+    // -----------------------------------------
+    if (!asset.withdraw_enabled) {
+
+      await conn.rollback();
+
+      return res.status(400).json({
+        error: "Withdrawals disabled"
+      });
+    }
+
+    // -----------------------------------------
+    // MAINTENANCE MODE
+    // -----------------------------------------
+    if (asset.maintenance_mode) {
+
+      await conn.rollback();
+
+      return res.status(400).json({
+        error: "Asset in maintenance mode"
+      });
+    }
+
+    // -----------------------------------------
+    // MIN WITHDRAW
+    // -----------------------------------------
+    const minWithdraw =
+      Number(asset.min_withdraw || 0);
+
+    if (parsedAmount < minWithdraw) {
+
+      await conn.rollback();
+
+      return res.status(400).json({
+        error: `Minimum withdraw is ${minWithdraw}`
+      });
+    }
+
+    // -----------------------------------------
+    // WITHDRAW FEE
+    // -----------------------------------------
+    const withdrawFee =
+      Number(asset.withdraw_fee || 0);
+
+    // total locked from balance
+    const totalDebit =
+      parsedAmount + withdrawFee;
+
+    // -----------------------------------------
+    // LOAD USER BALANCE
+    // -----------------------------------------
+    const [balances] = await conn.query(
+      `
+      SELECT *
+      FROM exchange_balances
+      WHERE user_id = ?
+        AND asset_ticker = ?
+      LIMIT 1
+      FOR UPDATE
+      `,
+      [
+        userId,
+        ticker
+      ]
+    );
+
+    if (!balances.length) {
+
+      await conn.rollback();
+
+      return res.status(400).json({
+        error: "Balance not found"
+      });
+    }
+
+    const balance = balances[0];
+
+    // -----------------------------------------
+    // CHECK AVAILABLE BALANCE
+    // -----------------------------------------
+    if (
+      Number(balance.available) <
+      totalDebit
+    ) {
+
+      await conn.rollback();
+
+      return res.status(400).json({
+        error: "Insufficient balance"
+      });
+    }
+
+    // -----------------------------------------
+    // LOCK BALANCE
+    // -----------------------------------------
+    await conn.query(
+      `
+      UPDATE exchange_balances
+      SET
+        available = available - ?,
+        locked = locked + ?
+      WHERE user_id = ?
+        AND asset_ticker = ?
+      `,
+      [
+        totalDebit,
+        totalDebit,
+        userId,
+        ticker
+      ]
+    );
+
+    // -----------------------------------------
+    // CREATE WITHDRAWAL
+    // -----------------------------------------
+    const [withdrawalResult] = await conn.query(
+      `
+      INSERT INTO exchange_withdrawals
+      (
+        user_id,
+        asset_ticker,
+        network,
+        address,
+        payment_id,
+        integrated_address,
+        memo,
+        tag,
+        amount,
+        fee,
+        status
+      )
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      `,
+      [
+        userId,
+        ticker,
+        network,
+        address,
+        payment_id,
+        integrated_address,
+        memo,
+        tag,
+        parsedAmount,
+        withdrawFee,
+        "pending"
+      ]
+    );
+
+    // -----------------------------------------
+    // CREATE TRANSACTION LOG
+    // -----------------------------------------
+    await balanceService.createTransaction(
+      conn,
+      userId,
+      ticker,
+      "lock",
+      totalDebit,
+      withdrawalResult.insertId,
+      `Withdrawal locked (${parsedAmount} + ${withdrawFee} fee)`
+    );
+
+    await conn.commit();
+
+    return res.json({
+      success: true,
+      withdrawal_id: withdrawalResult.insertId,
+      amount: parsedAmount,
+      fee: withdrawFee,
+      total_locked: totalDebit,
+      status: "pending"
+    });
+
+  } catch (err) {
+
+    await conn.rollback();
+
+    console.error(err);
+
+    return res.status(500).json({
+      error: "Internal error"
+    });
+
+  } finally {
+
+    conn.release();
+  }
+});
 
 router.get("/transactions", auth, async (req, res) => {
 
