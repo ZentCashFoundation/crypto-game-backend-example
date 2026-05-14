@@ -97,6 +97,7 @@ CREATE TABLE IF NOT EXISTS exchange_assets (
   contract_address VARCHAR(255),
   requires_memo BOOLEAN DEFAULT 0,
   confirmations_required INT DEFAULT 3,
+  explorer_url VARCHAR(255) DEFAULT NULL,
   explorer_tx_url VARCHAR(255) DEFAULT NULL,
   explorer_address_url VARCHAR(255) DEFAULT NULL,
   deposit_enabled TINYINT(1) DEFAULT 1,
@@ -106,6 +107,13 @@ CREATE TABLE IF NOT EXISTS exchange_assets (
   min_deposit DECIMAL(36,18) DEFAULT 0,
   min_withdraw DECIMAL(36,18) DEFAULT 0,
   withdraw_fee DECIMAL(36,18) DEFAULT 0;
+  usd_value VARCHAR(255) DEFAULT 0,
+  icon_url VARCHAR(255) DEFAULT NULL,
+  website VARCHAR(255) DEFAULT NULL,
+  coinmarketcap VARCHAR(255) DEFAULT NULL,
+  coingecko VARCHAR(255) DEFAULT NULL,
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
 );
 
 /* This table store users balances */
