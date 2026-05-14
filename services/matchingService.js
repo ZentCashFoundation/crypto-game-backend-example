@@ -45,9 +45,7 @@ module.exports = (pool, balanceService) => {
     let remaining =
       Number(order.amount) - Number(order.filled);
 
-    if (remaining <= 0) {
-      return;
-    }
+    if (remaining <= 0) return;
 
     const [baseAsset, quoteAsset] =
       order.pair.split("_");
@@ -60,7 +58,6 @@ module.exports = (pool, balanceService) => {
       let matchQuery = "";
       let params = [];
 
-      // BUY ORDER
       if (order.side === "buy") {
 
         matchQuery = `
@@ -85,7 +82,6 @@ module.exports = (pool, balanceService) => {
 
       } else {
 
-        // SELL ORDER
         matchQuery = `
           SELECT *
           FROM exchange_orders
@@ -109,14 +105,12 @@ module.exports = (pool, balanceService) => {
 
       const [matches] = await conn.query(matchQuery, params);
 
-      if (!matches.length) {
-        break;
-      }
+      if (!matches.length) break;
 
       const matched = matches[0];
 
       // -----------------------------------------
-      // 3. CALCULATE TRADE
+      // 3. TRADE CALC
       // -----------------------------------------
       const matchedRemaining =
         Number(matched.amount) - Number(matched.filled);
@@ -139,7 +133,7 @@ module.exports = (pool, balanceService) => {
       const sellerNet = quoteAmount - sellerFee;
 
       // -----------------------------------------
-      // 4. UPDATE FILLED
+      // 4. UPDATE ORDERS
       // -----------------------------------------
       const newOrderFilled =
         Number(order.filled) + tradeAmount;
@@ -147,36 +141,28 @@ module.exports = (pool, balanceService) => {
       const newMatchedFilled =
         Number(matched.filled) + tradeAmount;
 
-      const orderStatus =
-        newOrderFilled >= Number(order.amount)
-          ? "filled"
-          : "partial";
-
-      const matchedStatus =
-        newMatchedFilled >= Number(matched.amount)
-          ? "filled"
-          : "partial";
-
       await conn.query(
         `
         UPDATE exchange_orders
-        SET filled = ?, status = ?
+        SET filled = ?,
+            status = IF(filled + ? >= amount, 'filled', 'partial')
         WHERE id = ?
         `,
-        [newOrderFilled, orderStatus, order.id]
+        [newOrderFilled, tradeAmount, order.id]
       );
 
       await conn.query(
         `
         UPDATE exchange_orders
-        SET filled = ?, status = ?
+        SET filled = ?,
+            status = IF(filled + ? >= amount, 'filled', 'partial')
         WHERE id = ?
         `,
-        [newMatchedFilled, matchedStatus, matched.id]
+        [newMatchedFilled, tradeAmount, matched.id]
       );
 
       // -----------------------------------------
-      // 5. INSERT TRADE (WITH FEE)
+      // 5. INSERT TRADE
       // -----------------------------------------
       const buyOrder =
         order.side === "buy" ? order : matched;
@@ -184,7 +170,7 @@ module.exports = (pool, balanceService) => {
       const sellOrder =
         order.side === "sell" ? order : matched;
 
-      await conn.query(
+      const [tradeResult] = await conn.query(
         `
         INSERT INTO exchange_trades
         (
@@ -211,8 +197,10 @@ module.exports = (pool, balanceService) => {
         ]
       );
 
+      const tradeId = tradeResult.insertId;
+
       // -----------------------------------------
-      // 6. MOVE BALANCES
+      // 6. MOVE BALANCES + TRANSACTIONS
       // -----------------------------------------
 
       // BUYER (TAKER)
@@ -228,7 +216,9 @@ module.exports = (pool, balanceService) => {
         buyOrder.user_id,
         quoteAsset,
         "trade_out",
-        quoteAmount
+        quoteAmount,
+        tradeId,
+        `buy trade ${order.pair}`
       );
 
       await balanceService.increaseBalance(
@@ -243,7 +233,9 @@ module.exports = (pool, balanceService) => {
         buyOrder.user_id,
         baseAsset,
         "trade_in",
-        buyerNet
+        buyerNet,
+        tradeId,
+        `buy trade ${order.pair}`
       );
 
       await balanceService.createTransaction(
@@ -251,7 +243,9 @@ module.exports = (pool, balanceService) => {
         buyOrder.user_id,
         baseAsset,
         "fee",
-        buyerFee
+        buyerFee,
+        tradeId,
+        `taker fee ${order.pair}`
       );
 
       // SELLER (MAKER)
@@ -267,7 +261,9 @@ module.exports = (pool, balanceService) => {
         sellOrder.user_id,
         baseAsset,
         "trade_out",
-        tradeAmount
+        tradeAmount,
+        tradeId,
+        `sell trade ${order.pair}`
       );
 
       await balanceService.increaseBalance(
@@ -282,7 +278,9 @@ module.exports = (pool, balanceService) => {
         sellOrder.user_id,
         quoteAsset,
         "trade_in",
-        sellerNet
+        sellerNet,
+        tradeId,
+        `sell trade ${order.pair}`
       );
 
       await balanceService.createTransaction(
@@ -290,14 +288,15 @@ module.exports = (pool, balanceService) => {
         sellOrder.user_id,
         quoteAsset,
         "fee",
-        sellerFee
+        sellerFee,
+        tradeId,
+        `maker fee ${order.pair}`
       );
 
       // -----------------------------------------
-      // 7. UPDATE LOOP STATE
+      // 7. LOOP UPDATE
       // -----------------------------------------
       remaining -= tradeAmount;
-
       order.filled = newOrderFilled;
     }
   }
