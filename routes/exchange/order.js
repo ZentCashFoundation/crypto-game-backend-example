@@ -32,6 +32,23 @@ router.post("/", auth, async (req, res) => {
     });
   }
 
+  const [market] = await pool.query(
+    `
+    SELECT *
+    FROM exchange_markets
+    WHERE pair = ?
+      AND is_active = 1
+    LIMIT 1
+    `,
+    [pair]
+  );
+
+  if (!market.length) {
+    return res.status(400).json({
+      error: "Invalid or inactive market"
+    });
+  }
+
   if (!["buy", "sell"].includes(side)) {
     return res.status(400).json({
       error: "Invalid side"

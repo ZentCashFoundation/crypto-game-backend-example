@@ -43,6 +43,23 @@ router.get("/orderbook", async (req, res) => {
     return res.status(400).json({ error: "Pair required" });
   }
 
+  const [market] = await pool.query(
+    `
+    SELECT *
+    FROM exchange_markets
+    WHERE pair = ?
+      AND is_active = 1
+    LIMIT 1
+    `,
+    [pair]
+  );
+
+  if (!market.length) {
+    return res.status(400).json({
+      error: "Inactive market"
+    });
+  }
+
   const safeLimit = Math.min(Number(limit) || 50, 100);
 
   try {
