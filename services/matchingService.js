@@ -21,6 +21,26 @@ module.exports = (pool, balanceService) => {
 
     const order = orders[0];
 
+    // -----------------------------------------
+    // LOAD MARKET (FEES)
+    // -----------------------------------------
+    const [marketRows] = await conn.query(
+      `
+      SELECT *
+      FROM exchange_markets
+      WHERE pair = ?
+      LIMIT 1
+      `,
+      [order.pair]
+    );
+
+    if (!marketRows.length) {
+      throw new Error("Market not found");
+    }
+
+    const market = marketRows[0];
+    const feeRate = Number(market.taker_fee || 0.002);
+
     // remaining amount
     let remaining =
       Number(order.amount) - Number(order.filled);
@@ -107,6 +127,16 @@ module.exports = (pool, balanceService) => {
       );
 
       const tradePrice = Number(matched.price);
+      const quoteAmount = tradeAmount * tradePrice;
+
+      // -----------------------------------------
+      // FEES
+      // -----------------------------------------
+      const buyerFee = tradeAmount * feeRate;
+      const sellerFee = quoteAmount * feeRate;
+
+      const buyerNet = tradeAmount - buyerFee;
+      const sellerNet = quoteAmount - sellerFee;
 
       // -----------------------------------------
       // 4. UPDATE FILLED
@@ -146,7 +176,7 @@ module.exports = (pool, balanceService) => {
       );
 
       // -----------------------------------------
-      // 5. INSERT TRADE
+      // 5. INSERT TRADE (WITH FEE)
       // -----------------------------------------
       const buyOrder =
         order.side === "buy" ? order : matched;
@@ -164,9 +194,10 @@ module.exports = (pool, balanceService) => {
           buyer_user_id,
           seller_user_id,
           price,
-          amount
+          amount,
+          fee
         )
-        VALUES (?, ?, ?, ?, ?, ?, ?)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?)
         `,
         [
           order.pair,
@@ -175,17 +206,16 @@ module.exports = (pool, balanceService) => {
           buyOrder.user_id,
           sellOrder.user_id,
           tradePrice,
-          tradeAmount
+          tradeAmount,
+          buyerFee + sellerFee
         ]
       );
 
       // -----------------------------------------
       // 6. MOVE BALANCES
       // -----------------------------------------
-      const quoteAmount =
-        tradeAmount * tradePrice;
 
-      // buyer
+      // BUYER (TAKER)
       await balanceService.decreaseLockedBalance(
         conn,
         buyOrder.user_id,
@@ -193,18 +223,38 @@ module.exports = (pool, balanceService) => {
         quoteAmount
       );
 
-      await balanceService.createTransaction( conn, buyOrder.user_id, quoteAsset, "trade_out", quoteAmount );
+      await balanceService.createTransaction(
+        conn,
+        buyOrder.user_id,
+        quoteAsset,
+        "trade_out",
+        quoteAmount
+      );
 
       await balanceService.increaseBalance(
         conn,
         buyOrder.user_id,
         baseAsset,
-        tradeAmount
+        buyerNet
       );
 
-      await balanceService.createTransaction( conn, buyOrder.user_id, baseAsset, "trade_in", tradeAmount );
+      await balanceService.createTransaction(
+        conn,
+        buyOrder.user_id,
+        baseAsset,
+        "trade_in",
+        buyerNet
+      );
 
-      // seller
+      await balanceService.createTransaction(
+        conn,
+        buyOrder.user_id,
+        baseAsset,
+        "fee",
+        buyerFee
+      );
+
+      // SELLER (MAKER)
       await balanceService.decreaseLockedBalance(
         conn,
         sellOrder.user_id,
@@ -212,23 +262,42 @@ module.exports = (pool, balanceService) => {
         tradeAmount
       );
 
-      await balanceService.createTransaction( conn, sellOrder.user_id, baseAsset, "trade_out", tradeAmount );
+      await balanceService.createTransaction(
+        conn,
+        sellOrder.user_id,
+        baseAsset,
+        "trade_out",
+        tradeAmount
+      );
 
       await balanceService.increaseBalance(
         conn,
         sellOrder.user_id,
         quoteAsset,
-        quoteAmount
+        sellerNet
       );
 
-      await balanceService.createTransaction( conn, sellOrder.user_id, quoteAsset, "trade_in", quoteAmount );
+      await balanceService.createTransaction(
+        conn,
+        sellOrder.user_id,
+        quoteAsset,
+        "trade_in",
+        sellerNet
+      );
+
+      await balanceService.createTransaction(
+        conn,
+        sellOrder.user_id,
+        quoteAsset,
+        "fee",
+        sellerFee
+      );
 
       // -----------------------------------------
       // 7. UPDATE LOOP STATE
       // -----------------------------------------
       remaining -= tradeAmount;
 
-      // IMPORTANT: refresh order filled in memory
       order.filled = newOrderFilled;
     }
   }
