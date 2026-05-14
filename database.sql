@@ -259,6 +259,7 @@ CREATE TABLE IF NOT EXISTS exchange_trades (
   seller_user_id INT NOT NULL,
   price DECIMAL(32,16) NOT NULL,
   amount DECIMAL(32,16) NOT NULL,
+  fee DECIMAL(32,16) DEFAULT 0,
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
   INDEX idx_pair (pair),
   INDEX idx_buy_order (buy_order_id),
@@ -272,7 +273,7 @@ CREATE TABLE IF NOT EXISTS exchange_transactions (
   id BIGINT AUTO_INCREMENT PRIMARY KEY,
   user_id INT NOT NULL,
   asset_ticker VARCHAR(20) NOT NULL,
-  type ENUM('deposit', 'withdraw', 'trade_in', 'trade_out', 'lock', 'unlock') NOT NULL,
+  type ENUM('deposit', 'withdraw', 'trade_in', 'trade_out', 'lock', 'unlock', 'fee') NOT NULL,
   amount DECIMAL(32,16) NOT NULL,
   balance_before DECIMAL(32,16) DEFAULT NULL,
   balance_after DECIMAL(32,16) DEFAULT NULL,
@@ -303,3 +304,6 @@ VALUES (
   0.000000000004,
   0.000000000006
 );
+
+INSERT INTO exchange_markets (pair, base_asset, quote_asset, is_active, maker_fee, taker_fee) 
+VALUES ('ZTC_BTC', 'ZTC', 'BTC', 1, 0.001, 0.002), ('ZTC_LTC', 'ZTC', 'LTC', 1, 0.001, 0.002), ('ZTC_XMR', 'ZTC', 'XMR', 1, 0.001, 0.002);
