@@ -18,6 +18,7 @@ tags:
   - name: Exchange - Wallet
   - name: Exchange - Orders
   - name: Exchange - Trades
+  - name: Exchange - Assets
   - name: Exchange - Audit
 
 paths:
@@ -1232,13 +1233,186 @@ paths:
 
           "500":
             description: Internal server error.
-                  
+
+  /exchange/assets/getlist:
+    get:
+      summary: Get list of supported assets.
+      tags: [Exchange - Assets]
+      responses:
+        "200":
+          description: List of supported assets retrieved successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  asserts:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        ticker:
+                          type: string
+                          example: ZTC
+                        name:
+                          type: string
+                          example: ZentCash
+                        type:
+                          type: string
+                          example: TURTLENOTE                          
+                        network_default:
+                          type: string
+                          example: mainnet
+                        decimals:
+                          type: integer
+                          example: 2
+                        confirmations_required:
+                          type: integer
+                          example: 10
+                        min_deposit:
+                          type: string
+                          example: "0.0000000000000000"
+                        min_withdraw:
+                          type: string
+                          example: "10000.0000000000000000"  
+                        withdraw_fee:
+                          type: string
+                          example: "500.0000000000000000"
+                        deposit_enabled:
+                          type: number
+                          example: 1
+                        withdraw_enabled:
+                          type: number            
+                          example: 1
+                        maintenance_mode:
+                          type: number
+                          example: 1  
+
+              example:
+                success: true
+                assets:
+                  - ticker: ZTC
+                    name: ZentCash
+                    type: TURTLENOTE
+                    network_default: mainnet
+                    decimals: 2
+                    confirmations_required: 10
+                    min_deposit: "0.000000000000000000"
+                    min_withdraw: "10000.000000000000000000"
+                    withdraw_fee: "500.000000000000000000"
+                    deposit_enabled: 1
+                    withdraw_enabled: 1
+                    maintenance_mode: 0
+
+                  - ticker: BTC
+                    name: Bitcoin
+                    type: UTXO
+                    network_default: mainnet
+                    decimals: 8
+                    confirmations_required: 10
+                    min_deposit: "0.000000000000000000"
+                    min_withdraw: "0.000100000000000000"
+                    withdraw_fee: "0.000050000000000000"
+                    deposit_enabled: 1
+                    withdraw_enabled: 1
+                    maintenance_mode: 0
+
+
+        "500":
+          description: Error fetching asset list.
+
+  /exchange/assets/info:
+    get:
+      summary: Get asset information.
+      tags: [Exchange - Assets]
+      parameters:
+        - name: ticker
+          in: query
+          required: true
+          schema:
+            type: string
+            example: ZTC
+          description: Asset ticker.
+      responses:
+        "200":
+          description: Asset information retrieved successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  asset:
+                    type: object
+                    properties:
+                      ticker:
+                        type: string
+                        example: ZTC
+                      name:
+                        type: string
+                        example: ZentCash
+                      type:
+                        type: string
+                        example: TURTLENOTE                          
+                      network_default:
+                        type: string
+                        example: mainnet
+                      decimals:
+                        type: integer
+                        example: 2
+                      confirmations_required:
+                        type: integer
+                        example: 10
+                      min_deposit:
+                        type: string
+                        example: "0.0000000000000000"
+                      min_withdraw:
+                        type: string
+                        example: "10000.0000000000000000"  
+                      withdraw_fee:
+                        type: string
+                        example: "500.0000000000000000"
+                      deposit_enabled:
+                        type: number
+                        example: 1
+                      withdraw_enabled:
+                        type: number            
+                        example: 1
+                      maintenance_mode:
+                        type: number
+                        example: 1  
+
+              example:
+                success: true
+                asset:
+                  ticker: ZTC
+                  name: ZentCash
+                  type: TURTLENOTE
+                  network_default: mainnet
+                  decimals: 2
+                  confirmations_required: 10
+                  min_deposit: "0.0000000000000000"
+                  min_withdraw: "10000.0000000000000000"
+                  withdraw_fee: "500.0000000000000000"
+                  deposit_enabled: 1
+                  withdraw_enabled: 1
+                  maintenance_mode: 0
+
+        "400":
+          description: Ticker required.
+
+        "500":
+          description: Error fetching asset information.
+
   /exchange/audit:
     get:
       summary: Audit funds. Administrators only.
-      tags:
-        - Exchange - Audit
-
+      tags: [Exchange - Audit]
       security:
         - bearerAuth: []
 
