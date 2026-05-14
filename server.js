@@ -10,6 +10,7 @@ const pool = require("./db");
 const balanceService = require("./services/balanceService")(pool);
 const depositWatcher = require("./services/depositWatcher")(pool , balanceService);
 const withdrawalProcessor = require("./services/withdrawalProcessor")(pool, balanceService);
+const withdrawalWatcher =  require("./services/withdrawalWatcher")(pool);
 const authRoutes = require("./routes/auth");
 const gameswalletRoutes = require("./routes/games/wallet");
 const gamesgameRoutes = require("./routes/games/game");
@@ -38,6 +39,10 @@ app.use("/api/exchange/audit", auditRoutes);
 
 app.get("/", (req, res) => {
   res.json({ message: "Crypto Game Backend Example API Running" });
+});
+
+app.get("/api/exchange", (req, res) => {
+  res.json({ message: "Crypto Exchange Backend" });
 });
 
 if (process.env.SSL_PRIVATEKEY && process.env.SSL_FULLCHAIN) {
@@ -85,3 +90,19 @@ setInterval(async () => {
   }
 
 }, 15000);
+
+setInterval(async () => {
+
+  try {
+
+    await withdrawalWatcher.scanWithdrawalConfirmations();
+
+  } catch (err) {
+
+    console.error(
+      "[WITHDRAW WATCHER FATAL ERROR]",
+      err
+    );
+  }
+
+}, 30000);

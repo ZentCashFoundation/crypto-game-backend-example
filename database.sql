@@ -204,6 +204,24 @@ CREATE TABLE IF NOT EXISTS exchange_withdrawals (
   FOREIGN KEY (asset_ticker) REFERENCES exchange_assets(ticker)
 );
 
+/* This table stores the available trading pairs on 
+the exchange, including their base and quote assets, 
+fees, and precision. */
+CREATE TABLE exchange_markets (
+  id INT AUTO_INCREMENT PRIMARY KEY,
+  pair VARCHAR(20) UNIQUE,
+  base_asset VARCHAR(10),
+  quote_asset VARCHAR(10),
+  is_active BOOLEAN DEFAULT 1,
+  maker_fee DECIMAL(10,6) DEFAULT 0.001,
+  taker_fee DECIMAL(10,6) DEFAULT 0.002,
+  min_order_size DECIMAL(30,14) DEFAULT 0,
+  price_precision INT DEFAULT 8,
+  amount_precision INT DEFAULT 8,
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+);
+
 /* This table stores the current market prices for each trading pair. */
 CREATE TABLE IF NOT EXISTS exchange_market_prices (
   id INT AUTO_INCREMENT PRIMARY KEY,
