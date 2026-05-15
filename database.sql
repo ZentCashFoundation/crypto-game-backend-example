@@ -120,8 +120,8 @@ CREATE TABLE IF NOT EXISTS exchange_assets (
 CREATE TABLE IF NOT EXISTS exchange_balances (
   user_id INT NOT NULL,
   asset_ticker VARCHAR(20) NOT NULL,
-  available DECIMAL(32,16) DEFAULT 0,
-  locked DECIMAL(32,16) DEFAULT 0,
+  available DECIMAL(36,18) DEFAULT 0,
+  locked DECIMAL(36,18) DEFAULT 0,
   PRIMARY KEY (user_id, asset_ticker),
   FOREIGN KEY (user_id) REFERENCES users(id),
   FOREIGN KEY (asset_ticker) REFERENCES exchange_assets(ticker)
@@ -213,11 +213,15 @@ CREATE TABLE exchange_markets (
   base_asset VARCHAR(10),
   quote_asset VARCHAR(10),
   is_active BOOLEAN DEFAULT 1,
-  maker_fee DECIMAL(10,6) DEFAULT 0.001,
-  taker_fee DECIMAL(10,6) DEFAULT 0.002,
-  min_order_size DECIMAL(30,14) DEFAULT 0,
+  maker_fee DECIMAL(10,6) DEFAULT 0.02,
+  taker_fee DECIMAL(10,6) DEFAULT 0.02,
+  min_order_size DECIMAL(36,18) DEFAULT 0,
   price_precision INT DEFAULT 8,
   amount_precision INT DEFAULT 8,
+  bid_price DECIMAL(36,18) DEFAULT 0,
+  ask_price DECIMAL(36,18) DEFAULT 0,
+  last_price DECIMAL(36,18) DEFAULT 0,
+  spread DECIMAL(36,18) GENERATED ALWAYS AS (CASE WHEN ask_price > 0 AND bid_price > 0 THEN ask_price - bid_price ELSE 0 END) STORED,
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
   updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
 );
@@ -226,10 +230,10 @@ CREATE TABLE exchange_markets (
 CREATE TABLE IF NOT EXISTS exchange_market_prices (
   id INT AUTO_INCREMENT PRIMARY KEY,
   pair VARCHAR(20) NOT NULL UNIQUE,
-  last_price DECIMAL(30,14) NOT NULL,
-  bid_price DECIMAL(30,14) DEFAULT NULL,
-  ask_price DECIMAL(30,14) DEFAULT NULL,
-  spread DECIMAL(30,14) GENERATED ALWAYS AS (ask_price - bid_price) STORED,
+  last_price DECIMAL(36,18) NOT NULL,
+  bid_price DECIMAL(36,18) DEFAULT NULL,
+  ask_price DECIMAL(36,18) DEFAULT NULL,
+  spread DECIMAL(36,18) GENERATED ALWAYS AS (ask_price - bid_price) STORED,
   updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
 );
 
@@ -240,9 +244,9 @@ CREATE TABLE IF NOT EXISTS exchange_orders (
   pair VARCHAR(20) NOT NULL,
   side ENUM('buy','sell') NOT NULL,
   type ENUM('limit','market') NOT NULL,
-  price DECIMAL(32,16) DEFAULT NULL,
-  amount DECIMAL(32,16) NOT NULL,
-  filled DECIMAL(32,16) DEFAULT 0,
+  price DECIMAL(36,18) DEFAULT NULL,
+  amount DECIMAL(36,18) NOT NULL,
+  filled DECIMAL(36,18) DEFAULT 0,
   status ENUM('open','partial','filled','cancelled') DEFAULT 'open',
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
   INDEX idx_book (pair, side, price, status),
@@ -257,10 +261,10 @@ CREATE TABLE IF NOT EXISTS exchange_trades (
   sell_order_id BIGINT NOT NULL,
   buyer_user_id INT NOT NULL,
   seller_user_id INT NOT NULL,
-  price DECIMAL(32,16) NOT NULL,
-  amount DECIMAL(32,16) NOT NULL,
-  buyer_fee DECIMAL(32,16) DEFAULT 0,
-  seller_fee DECIMAL(32,16) DEFAULT 0,
+  price DECIMAL(36,18) NOT NULL,
+  amount DECIMAL(36,18) NOT NULL,
+  buyer_fee DECIMAL(36,18) DEFAULT 0,
+  seller_fee DECIMAL(36,18) DEFAULT 0,
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
   INDEX idx_pair (pair),
   INDEX idx_buy_order (buy_order_id),
@@ -275,9 +279,9 @@ CREATE TABLE IF NOT EXISTS exchange_transactions (
   user_id INT NOT NULL,
   asset_ticker VARCHAR(20) NOT NULL,
   type ENUM('deposit', 'withdraw', 'trade_in', 'trade_out', 'lock', 'unlock', 'fee') NOT NULL,
-  amount DECIMAL(32,16) NOT NULL,
-  balance_before DECIMAL(32,16) DEFAULT NULL,
-  balance_after DECIMAL(32,16) DEFAULT NULL,
+  amount DECIMAL(36,18) NOT NULL,
+  balance_before DECIMAL(36,18) DEFAULT NULL,
+  balance_after DECIMAL(36,18) DEFAULT NULL,
   reference_id VARCHAR(255) DEFAULT NULL,
   description VARCHAR(255) DEFAULT NULL,
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
@@ -307,4 +311,4 @@ VALUES (
 );
 
 INSERT INTO exchange_markets (pair, base_asset, quote_asset, is_active, maker_fee, taker_fee) 
-VALUES ('ZTC_BTC', 'ZTC', 'BTC', 1, 0.001, 0.002), ('ZTC_LTC', 'ZTC', 'LTC', 1, 0.001, 0.002), ('ZTC_XMR', 'ZTC', 'XMR', 1, 0.001, 0.002);
+VALUES ('ZTC_BTC', 'ZTC', 'BTC', 1, 0.02, 0.02), ('ZTC_LTC', 'ZTC', 'LTC', 1, 0.02, 0.02), ('ZTC_XMR', 'ZTC', 'XMR', 1, 0.02, 0.02);

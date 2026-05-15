@@ -6,7 +6,7 @@ const pool = require("../../db");
 router.get("/tickers", async (req, res) => {
   try {
     const [rows] = await pool.query(
-      "SELECT * FROM exchange_market_prices ORDER BY updated_at ASC"
+      "SELECT id, pair, last_price, bid_price, ask_price, spread, updated_at FROM exchange_markets ORDER BY updated_at ASC"
     );
 
     res.json({ result: rows });
@@ -25,7 +25,7 @@ router.get("/ticker", async (req, res) => {
 
   try {
     const [rows] = await pool.query(
-      "SELECT * FROM exchange_market_prices WHERE pair = ?",
+      "SELECT id, pair, last_price, bid_price, ask_price, spread, updated_at FROM exchange_markets WHERE pair = ?",
       [pair]
     );
 

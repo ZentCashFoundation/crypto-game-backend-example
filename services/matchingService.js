@@ -1,19 +1,52 @@
 module.exports = (pool, balanceService) => {
 
+  async function updateMarketSnapshot(conn, pair, tradePrice) {
+
+    const [[bid]] = await conn.query(`
+      SELECT price
+      FROM exchange_orders
+      WHERE pair = ?
+        AND side = 'buy'
+        AND status IN ('open','partial')
+      ORDER BY price DESC
+      LIMIT 1
+    `, [pair]);
+
+    const [[ask]] = await conn.query(`
+      SELECT price
+      FROM exchange_orders
+      WHERE pair = ?
+        AND side = 'sell'
+        AND status IN ('open','partial')
+      ORDER BY price ASC
+      LIMIT 1
+    `, [pair]);
+
+    await conn.query(`
+      UPDATE exchange_markets
+      SET
+        bid_price = ?,
+        ask_price = ?,
+        last_price = ?,
+        updated_at = NOW()
+      WHERE pair = ?
+    `, [
+      bid?.price ?? null,
+      ask?.price ?? null,
+      tradePrice,
+      pair
+    ]);
+  }
+
   async function tryMatch(conn, orderId) {
 
-    // -----------------------------------------
-    // 1. LOAD ORDER
-    // -----------------------------------------
-    const [orders] = await conn.query(
-      `
+    // LOAD ORDER
+    const [orders] = await conn.query(`
       SELECT *
       FROM exchange_orders
       WHERE id = ?
       LIMIT 1
-      `,
-      [orderId]
-    );
+    `, [orderId]);
 
     if (!orders.length) {
       throw new Error("Order not found");
@@ -21,157 +54,237 @@ module.exports = (pool, balanceService) => {
 
     const order = orders[0];
 
-    // -----------------------------------------
-    // LOAD MARKET (FEES)
-    // -----------------------------------------
-    const [marketRows] = await conn.query(
-      `
+    // LOAD MARKET
+    const [marketRows] = await conn.query(`
       SELECT *
       FROM exchange_markets
       WHERE pair = ?
       LIMIT 1
-      `,
-      [order.pair]
-    );
+    `, [order.pair]);
 
     if (!marketRows.length) {
       throw new Error("Market not found");
     }
 
-    const market = marketRows[0];
-    const feeRate = Number(market.taker_fee || 0.002);
+    const feeRate =
+      Number(marketRows[0].taker_fee || 0.002);
 
-    // remaining amount
+    const [baseAsset, quoteAsset] =
+      order.pair.split("_");
+
     let remaining =
       Number(order.amount) - Number(order.filled);
 
     if (remaining <= 0) return;
 
-    const [baseAsset, quoteAsset] =
-      order.pair.split("_");
+    let totalSpent = 0;
 
-    // -----------------------------------------
-    // 2. MATCH LOOP
-    // -----------------------------------------
+    // MATCH LOOP
     while (remaining > 0) {
 
       let matchQuery = "";
       let params = [];
 
+      // BUY
       if (order.side === "buy") {
 
-        matchQuery = `
-          SELECT *
-          FROM exchange_orders
-          WHERE pair = ?
-            AND side = 'sell'
-            AND status IN ('open','partial')
-            AND price <= ?
-            AND id != ?
-            AND user_id != ?
-          ORDER BY price ASC, created_at ASC
-          LIMIT 1
-        `;
+        if (order.type === "market") {
 
-        params = [
-          order.pair,
-          order.price,
-          order.id,
-          order.user_id
-        ];
+          matchQuery = `
+            SELECT *
+            FROM exchange_orders
+            WHERE pair = ?
+              AND side = 'sell'
+              AND status IN ('open','partial')
+              AND id != ?
+              AND user_id != ?
+            ORDER BY price ASC, created_at ASC
+            LIMIT 1
+          `;
 
+          params = [
+            order.pair,
+            order.id,
+            order.user_id
+          ];
+
+        } else {
+
+          matchQuery = `
+            SELECT *
+            FROM exchange_orders
+            WHERE pair = ?
+              AND side = 'sell'
+              AND status IN ('open','partial')
+              AND price <= ?
+              AND id != ?
+              AND user_id != ?
+            ORDER BY price ASC, created_at ASC
+            LIMIT 1
+          `;
+
+          params = [
+            order.pair,
+            order.price,
+            order.id,
+            order.user_id
+          ];
+        }
+
+      // SELL
       } else {
 
-        matchQuery = `
-          SELECT *
-          FROM exchange_orders
-          WHERE pair = ?
-            AND side = 'buy'
-            AND status IN ('open','partial')
-            AND price >= ?
-            AND id != ?
-            AND user_id != ?
-          ORDER BY price DESC, created_at ASC
-          LIMIT 1
-        `;
+        if (order.type === "market") {
 
-        params = [
-          order.pair,
-          order.price,
-          order.id,
-          order.user_id
-        ];
+          matchQuery = `
+            SELECT *
+            FROM exchange_orders
+            WHERE pair = ?
+              AND side = 'buy'
+              AND status IN ('open','partial')
+              AND id != ?
+              AND user_id != ?
+            ORDER BY price DESC, created_at ASC
+            LIMIT 1
+          `;
+
+          params = [
+            order.pair,
+            order.id,
+            order.user_id
+          ];
+
+        } else {
+
+          matchQuery = `
+            SELECT *
+            FROM exchange_orders
+            WHERE pair = ?
+              AND side = 'buy'
+              AND status IN ('open','partial')
+              AND price >= ?
+              AND id != ?
+              AND user_id != ?
+            ORDER BY price DESC, created_at ASC
+            LIMIT 1
+          `;
+
+          params = [
+            order.pair,
+            order.price,
+            order.id,
+            order.user_id
+          ];
+        }
       }
 
-      const [matches] = await conn.query(matchQuery, params);
+      const [matches] =
+        await conn.query(matchQuery, params);
 
-      if (!matches.length) break;
+      // NO LIQUIDITY
+      if (!matches.length) {
+        break;
+      }
 
       const matched = matches[0];
 
-      // -----------------------------------------
-      // 3. TRADE CALC
-      // -----------------------------------------
+      // TRADE CALC
       const matchedRemaining =
-        Number(matched.amount) - Number(matched.filled);
+        Number(matched.amount) -
+        Number(matched.filled);
 
-      const tradeAmount = Math.min(
-        remaining,
-        matchedRemaining
-      );
+      const tradeAmount =
+        Math.min(remaining, matchedRemaining);
 
-      const tradePrice = Number(matched.price);
-      const quoteAmount = tradeAmount * tradePrice;
+      const tradePrice =
+        Number(matched.price);
 
-      // -----------------------------------------
+      const quoteAmount =
+        tradeAmount * tradePrice;
+
+      totalSpent += quoteAmount;
+
       // FEES
-      // -----------------------------------------
-      const buyerFee = tradeAmount * feeRate;
-      const sellerFee = quoteAmount * feeRate;
+      const buyerFee =
+        tradeAmount * feeRate;
 
-      const buyerNet = tradeAmount - buyerFee;
-      const sellerNet = quoteAmount - sellerFee;
+      const sellerFee =
+        quoteAmount * feeRate;
 
-      // -----------------------------------------
-      // 4. UPDATE ORDERS
-      // -----------------------------------------
-      const newOrderFilled =
+      const buyerNet =
+        tradeAmount - buyerFee;
+
+      const sellerNet =
+        quoteAmount - sellerFee;
+
+      // ORDER STATES
+      const orderNewFilled =
         Number(order.filled) + tradeAmount;
 
-      const newMatchedFilled =
+      const matchedNewFilled =
         Number(matched.filled) + tradeAmount;
 
-      await conn.query(
-        `
-        UPDATE exchange_orders
-        SET filled = ?,
-            status = IF(filled + ? >= amount, 'filled', 'partial')
-        WHERE id = ?
-        `,
-        [newOrderFilled, tradeAmount, order.id]
-      );
+      let orderStatus = "open";
 
-      await conn.query(
-        `
-        UPDATE exchange_orders
-        SET filled = ?,
-            status = IF(filled + ? >= amount, 'filled', 'partial')
-        WHERE id = ?
-        `,
-        [newMatchedFilled, tradeAmount, matched.id]
-      );
+      if (orderNewFilled > 0) {
+        orderStatus = "partial";
+      }
 
-      // -----------------------------------------
-      // 5. INSERT TRADE
-      // -----------------------------------------
+      if (orderNewFilled >= Number(order.amount)) {
+        orderStatus = "filled";
+      }
+
+      let matchedStatus = "open";
+
+      if (matchedNewFilled > 0) {
+        matchedStatus = "partial";
+      }
+
+      if (matchedNewFilled >= Number(matched.amount)) {
+        matchedStatus = "filled";
+      }
+
+      // UPDATE ORDERS
+      await conn.query(`
+        UPDATE exchange_orders
+        SET
+          filled = ?,
+          status = ?
+        WHERE id = ?
+      `, [
+        orderNewFilled,
+        orderStatus,
+        order.id
+      ]);
+
+      await conn.query(`
+        UPDATE exchange_orders
+        SET
+          filled = ?,
+          status = ?
+        WHERE id = ?
+      `, [
+        matchedNewFilled,
+        matchedStatus,
+        matched.id
+      ]);
+
+      // UPDATE MEMORY
+      order.filled = orderNewFilled;
+      matched.filled = matchedNewFilled;
+
+      // TRADE INSERT
       const buyOrder =
-        order.side === "buy" ? order : matched;
+        order.side === "buy"
+          ? order
+          : matched;
 
       const sellOrder =
-        order.side === "sell" ? order : matched;
+        order.side === "sell"
+          ? order
+          : matched;
 
-      const [tradeResult] = await conn.query(
-        `
+      const [tradeResult] = await conn.query(`
         INSERT INTO exchange_trades
         (
           pair,
@@ -185,42 +298,33 @@ module.exports = (pool, balanceService) => {
           seller_fee
         )
         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-        `,
-        [
-          order.pair,
-          buyOrder.id,
-          sellOrder.id,
-          buyOrder.user_id,
-          sellOrder.user_id,
-          tradePrice,
-          tradeAmount,
-          buyerFee,
-          sellerFee
-        ]
+      `, [
+        order.pair,
+        buyOrder.id,
+        sellOrder.id,
+        buyOrder.user_id,
+        sellOrder.user_id,
+        tradePrice,
+        tradeAmount,
+        buyerFee,
+        sellerFee
+      ]);
+
+      const tradeId =
+        tradeResult.insertId;
+
+      await updateMarketSnapshot(
+        conn,
+        order.pair,
+        tradePrice
       );
 
-      const tradeId = tradeResult.insertId;
-
-      // -----------------------------------------
-      // 6. MOVE BALANCES + TRANSACTIONS
-      // -----------------------------------------
-
-      // BUYER (TAKER)
+      // BUYER
       await balanceService.decreaseLockedBalance(
         conn,
         buyOrder.user_id,
         quoteAsset,
         quoteAmount
-      );
-
-      await balanceService.createTransaction(
-        conn,
-        buyOrder.user_id,
-        quoteAsset,
-        "trade_out",
-        quoteAmount,
-        tradeId,
-        `buy trade ${order.pair}`
       );
 
       await balanceService.increaseBalance(
@@ -230,42 +334,12 @@ module.exports = (pool, balanceService) => {
         buyerNet
       );
 
-      await balanceService.createTransaction(
-        conn,
-        buyOrder.user_id,
-        baseAsset,
-        "trade_in",
-        buyerNet,
-        tradeId,
-        `buy trade ${order.pair}`
-      );
-
-      await balanceService.createTransaction(
-        conn,
-        buyOrder.user_id,
-        baseAsset,
-        "fee",
-        buyerFee,
-        tradeId,
-        `taker fee ${order.pair}`
-      );
-
-      // SELLER (MAKER)
+      // SELLER
       await balanceService.decreaseLockedBalance(
         conn,
         sellOrder.user_id,
         baseAsset,
         tradeAmount
-      );
-
-      await balanceService.createTransaction(
-        conn,
-        sellOrder.user_id,
-        baseAsset,
-        "trade_out",
-        tradeAmount,
-        tradeId,
-        `sell trade ${order.pair}`
       );
 
       await balanceService.increaseBalance(
@@ -275,14 +349,51 @@ module.exports = (pool, balanceService) => {
         sellerNet
       );
 
+      // TRANSACTIONS
+      await balanceService.createTransaction(
+        conn,
+        buyOrder.user_id,
+        quoteAsset,
+        "trade_out",
+        quoteAmount,
+        tradeId
+      );
+
+      await balanceService.createTransaction(
+        conn,
+        buyOrder.user_id,
+        baseAsset,
+        "trade_in",
+        buyerNet,
+        tradeId
+      );
+
+      await balanceService.createTransaction(
+        conn,
+        sellOrder.user_id,
+        baseAsset,
+        "trade_out",
+        tradeAmount,
+        tradeId
+      );
+
       await balanceService.createTransaction(
         conn,
         sellOrder.user_id,
         quoteAsset,
         "trade_in",
         sellerNet,
-        tradeId,
-        `sell trade ${order.pair}`
+        tradeId
+      );
+
+      // FEES
+      await balanceService.createTransaction(
+        conn,
+        buyOrder.user_id,
+        baseAsset,
+        "fee",
+        buyerFee,
+        tradeId
       );
 
       await balanceService.createTransaction(
@@ -291,15 +402,49 @@ module.exports = (pool, balanceService) => {
         quoteAsset,
         "fee",
         sellerFee,
-        tradeId,
-        `maker fee ${order.pair}`
+        tradeId
       );
 
-      // -----------------------------------------
-      // 7. LOOP UPDATE
-      // -----------------------------------------
+      // LOOP UPDATE
       remaining -= tradeAmount;
-      order.filled = newOrderFilled;
+    }
+
+    // MARKET ORDER CLEANUP
+    if (order.type === "market" && remaining > 0) {
+
+      // SELL MARKET
+      if (order.side === "sell") {
+
+        await balanceService.unlockBalance(
+          conn,
+          order.user_id,
+          baseAsset,
+          remaining
+        );
+
+      // BUY MARKET
+      } else {
+
+        const lockedUnused =
+          (Number(order.amount) * Number(order.price || 0))
+          - totalSpent;
+
+        if (lockedUnused > 0) {
+
+          await balanceService.unlockBalance(
+            conn,
+            order.user_id,
+            quoteAsset,
+            lockedUnused
+          );
+        }
+      }
+
+      await conn.query(`
+        UPDATE exchange_orders
+        SET status = 'cancelled'
+        WHERE id = ?
+      `, [order.id]);
     }
   }
 

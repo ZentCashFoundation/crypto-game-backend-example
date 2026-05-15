@@ -17,71 +17,37 @@ router.post("/", auth, async (req, res) => {
     amount
   } = req.body;
 
-  // -----------------------------------------
-  // VALIDATION
-  // -----------------------------------------
-
-  if (
-    !pair ||
-    !side ||
-    !type ||
-    !amount
-  ) {
-    return res.status(400).json({
-      error: "Missing fields"
-    });
+  if (!pair || !side || !type || !amount) {
+    return res.status(400).json({ error: "Missing fields" });
   }
 
-  const [market] = await pool.query(
-    `
+  const [market] = await pool.query(`
     SELECT *
     FROM exchange_markets
     WHERE pair = ?
       AND is_active = 1
     LIMIT 1
-    `,
-    [pair]
-  );
+  `, [pair]);
 
   if (!market.length) {
-    return res.status(400).json({
-      error: "Invalid or inactive market"
-    });
+    return res.status(400).json({ error: "Invalid or inactive market" });
   }
 
   if (!["buy", "sell"].includes(side)) {
-    return res.status(400).json({
-      error: "Invalid side"
-    });
+    return res.status(400).json({ error: "Invalid side" });
   }
 
   if (!["limit", "market"].includes(type)) {
-    return res.status(400).json({
-      error: "Invalid type"
-    });
+    return res.status(400).json({ error: "Invalid type" });
   }
 
-  if (type !== "limit") {
-  return res.status(400).json({
-    error: "Only limit orders supported for now"
-  });
-}
-
   if (Number(amount) <= 0) {
-    return res.status(400).json({
-      error: "Invalid amount"
-    });
+    return res.status(400).json({ error: "Invalid amount" });
   }
 
   if (type === "limit" && Number(price) <= 0) {
-    return res.status(400).json({
-      error: "Invalid price"
-    });
+    return res.status(400).json({ error: "Invalid price" });
   }
-
-  // -----------------------------------------
-  // BEGIN TRANSACTION
-  // -----------------------------------------
 
   const conn = await pool.getConnection();
 
@@ -89,21 +55,15 @@ router.post("/", auth, async (req, res) => {
 
     await conn.beginTransaction();
 
-    // -----------------------------------------
-    // SPLIT PAIR
-    // -----------------------------------------
-
-    const [baseAsset, quoteAsset] =
-      pair.split("_");
+    const [baseAsset, quoteAsset] = pair.split("_");
 
     if (!baseAsset || !quoteAsset) {
       throw new Error("Invalid pair");
     }
 
     // -----------------------------------------
-    // LOCK BALANCE
+    // FIX CLAVE: MARKET vs LIMIT
     // -----------------------------------------
-
     if (side === "sell") {
 
       await balanceService.lockBalance(
@@ -115,8 +75,27 @@ router.post("/", auth, async (req, res) => {
 
     } else {
 
-      const total =
-        Number(price) * Number(amount);
+      let total;
+
+      if (type === "limit") {
+        total = Number(price) * Number(amount);
+      } else {
+        // MARKET BUY → estimación inicial
+        // (se ajusta luego en matching real)
+        const ask = await pool.query(`
+          SELECT price
+          FROM exchange_orders
+          WHERE pair = ?
+            AND side = 'sell'
+            AND status IN ('open','partial')
+          ORDER BY price ASC
+          LIMIT 1
+        `, [pair]);
+
+        const fallbackPrice = ask[0]?.[0]?.price || 0;
+
+        total = fallbackPrice * Number(amount);
+      }
 
       await balanceService.lockBalance(
         conn,
@@ -129,9 +108,7 @@ router.post("/", auth, async (req, res) => {
     // -----------------------------------------
     // CREATE ORDER
     // -----------------------------------------
-
-    const [result] = await conn.query(
-      `
+    const [result] = await conn.query(`
       INSERT INTO exchange_orders
       (
         user_id,
@@ -144,29 +121,16 @@ router.post("/", auth, async (req, res) => {
         status
       )
       VALUES (?, ?, ?, ?, ?, ?, 0, 'open')
-      `,
-      [
-        userId,
-        pair,
-        side,
-        type,
-        price || null,
-        amount
-      ]
-    );
+    `, [
+      userId,
+      pair,
+      side,
+      type,
+      price || null,
+      amount
+    ]);
 
-    // -----------------------------------------
-    // TRY MATCH
-    // -----------------------------------------
-
-    await matchingService.tryMatch(
-      conn,
-      result.insertId
-    );
-
-    // -----------------------------------------
-    // COMMIT
-    // -----------------------------------------
+    await matchingService.tryMatch(conn, result.insertId);
 
     await conn.commit();
 
@@ -178,15 +142,9 @@ router.post("/", auth, async (req, res) => {
   } catch (err) {
 
     await conn.rollback();
-
-    console.error(err);
-
-    return res.status(400).json({
-      error: err.message
-    });
+    return res.status(400).json({ error: err.message });
 
   } finally {
-
     conn.release();
   }
 });
