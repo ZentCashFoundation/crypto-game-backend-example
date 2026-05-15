@@ -181,9 +181,10 @@ module.exports = (pool, balanceService) => {
           seller_user_id,
           price,
           amount,
-          fee
+          buyer_fee,
+          seller_fee
         )
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
         `,
         [
           order.pair,
@@ -193,7 +194,8 @@ module.exports = (pool, balanceService) => {
           sellOrder.user_id,
           tradePrice,
           tradeAmount,
-          buyerFee + sellerFee
+          buyerFee,
+          sellerFee
         ]
       );
 
