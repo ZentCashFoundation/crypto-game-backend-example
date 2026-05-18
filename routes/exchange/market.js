@@ -95,7 +95,7 @@ router.get("/orderbook", async (req, res) => {
     );
 
     const format = (rows) =>
-      rows.map(r => [Number(r.price), Number(r.total)]);
+      rows.map(r => [String(r.price), String(r.total)]);
 
     return res.json({
       pair,
@@ -129,6 +129,66 @@ router.get("/trades", async (req, res) => {
 
   } catch (err) {
     res.status(500).json({ error: "Error fetching pair" });
+  }
+});
+
+router.get("/candles", async (req, res) => {
+
+  try {
+
+    const {pair, timeframe = "1m", limit = 200} = req.query;
+
+    if (!pair) {
+      return res.status(400).json({
+        error: "Pair required"
+      });
+    }
+
+    const allowed = [
+      "1m",
+      "5m",
+      "15m",
+      "1h",
+      "4h",
+      "1d"
+    ];
+
+    if (!allowed.includes(timeframe)) {
+      return res.status(400).json({
+        error: "Invalid timeframe"
+      });
+    }
+
+    const [candles] = await pool.query(`
+      SELECT
+        open_time,
+        open_price,
+        high_price,
+        low_price,
+        close_price,
+        volume
+      FROM exchange_candles
+      WHERE pair = ?
+        AND timeframe = ?
+      ORDER BY open_time DESC
+      LIMIT ?
+    `, [
+      pair,
+      timeframe,
+      Number(limit)
+    ]);
+
+    return res.json(
+      candles.reverse()
+    );
+
+  } catch (err) {
+
+    console.error(err);
+
+    return res.status(500).json({
+      error: "Internal server error"
+    });
   }
 });
 

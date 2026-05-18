@@ -19,7 +19,8 @@ const exchangemarketRoutes = require("./routes/exchange/market");
 const exchangewalletRoutes = require("./routes/exchange/wallet");
 const orderRoutes = require("./routes/exchange/order");
 const tradeRoutes = require("./routes/exchange/trade");
-const auditRoutes = require("./routes/exchange/audit")
+const auditRoutes = require("./routes/exchange/audit");
+const candleFillerService = require("./services/candleFillerService")();
 
 const app = express();
 
@@ -106,3 +107,14 @@ setInterval(async () => {
   }
 
 }, 30000);
+
+setInterval(async () => {
+
+  try {
+    await candleFillerService.fillCandles(pool);
+
+  } catch (err) {
+    console.error("candle filler error:", err);
+  }
+
+}, 60 * 1000);

@@ -1,4 +1,4 @@
-module.exports = (pool, balanceService) => {
+module.exports = (pool, balanceService, candleService) => {
 
   async function updateMarketSnapshot(conn, pair, tradePrice) {
 
@@ -312,6 +312,13 @@ module.exports = (pool, balanceService) => {
 
       const tradeId =
         tradeResult.insertId;
+
+      await candleService.processTrade(
+        conn,
+        order.pair,
+        tradePrice,
+        tradeAmount
+      );  
 
       await updateMarketSnapshot(
         conn,

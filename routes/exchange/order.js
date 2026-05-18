@@ -2,8 +2,9 @@ const express = require("express");
 const router = express.Router();
 const auth = require("../../middleware/auth");
 const pool = require("../../db");
+const candleService =  require("../../services/candleService")();
 const balanceService = require("../../services/balanceService")(pool);
-const matchingService = require("../../services/matchingService")(pool, balanceService);
+const matchingService = require("../../services/matchingService")(pool, balanceService, candleService);
 
 router.post("/", auth, async (req, res) => {
 

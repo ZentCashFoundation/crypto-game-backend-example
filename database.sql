@@ -292,6 +292,21 @@ CREATE TABLE IF NOT EXISTS exchange_transactions (
   FOREIGN KEY (asset_ticker) REFERENCES exchange_assets(ticker)
 );
 
+CREATE TABLE IF NOT EXISTS exchange_candles (
+  id BIGINT AUTO_INCREMENT PRIMARY KEY,
+  pair VARCHAR(20) NOT NULL,
+  timeframe VARCHAR(10) NOT NULL, -- 1m,5m,15m,1h,4h,1d
+  open_price DECIMAL(36,18) NOT NULL,
+  high_price DECIMAL(36,18) NOT NULL,
+  low_price DECIMAL(36,18) NOT NULL,
+  close_price DECIMAL(36,18) NOT NULL,
+  volume DECIMAL(36,18) NOT NULL DEFAULT 0,
+  open_time BIGINT NOT NULL,
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  UNIQUE KEY unique_candle (pair, timeframe, open_time),
+  INDEX idx_pair_timeframe (pair, timeframe, open_time)
+);
+
 /* Insert assets */
 INSERT INTO exchange_assets (ticker, name, type) VALUES
 ('BTC', 'Bitcoin', 'UTXO'),
