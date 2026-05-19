@@ -8,7 +8,7 @@ const fs = require("fs");
 require("dotenv").config();
 const pool = require("./db");
 const balanceService = require("./services/balanceService")(pool);
-const depositWatcher = require("./services/depositWatcher")(pool , balanceService);
+const depositWatcher = require("./services/depositWatcher")(pool, balanceService);
 const withdrawalProcessor = require("./services/withdrawalProcessor")(pool, balanceService);
 const withdrawalWatcher =  require("./services/withdrawalWatcher")(pool);
 const authRoutes = require("./routes/auth");
@@ -21,6 +21,8 @@ const orderRoutes = require("./routes/exchange/order");
 const tradeRoutes = require("./routes/exchange/trade");
 const auditRoutes = require("./routes/exchange/audit");
 const candleFillerService = require("./services/candleFillerService")();
+const marketStatsService = require("./services/marketStatsService")(pool);
+const marketUpdater =  require("./services/marketUpdater")(pool, marketStatsService);
 
 const app = express();
 
@@ -117,4 +119,10 @@ setInterval(async () => {
     console.error("candle filler error:", err);
   }
 
-}, 60 * 1000);
+}, 900 * 1000);
+setInterval(() => {
+
+  marketUpdater.updateMarketTable()
+    .catch(console.error);
+
+}, 10000);
