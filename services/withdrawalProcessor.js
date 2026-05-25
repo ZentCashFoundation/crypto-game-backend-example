@@ -851,20 +851,20 @@ async function processTurtleNoteWithdrawals(asset) {
             amount: atomicAmount
           }
         ],
-
+        /* Disable
         sourceAddresses: [
           userWallet.address
         ],
 
         changeAddress:
           userWallet.address
+        */          
       };
 
       // optional payment id
-      if (dbWithdrawal.payment_id) {
-        requestBody.paymentID =
-          dbWithdrawal.payment_id;
-      }
+      if (typeof dbWithdrawal.payment_id === "string" && dbWithdrawal.payment_id.length === 64 && dbWithdrawal.payment_id != null) {
+        requestBody.paymentID = dbWithdrawal.payment_id;
+      }      
 
       // -----------------------------------------
       // SEND TRANSACTION

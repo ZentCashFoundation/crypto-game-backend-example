@@ -250,6 +250,23 @@ function formatWallet(asset, wallet) {
   return { address: wallet.address };
 }
 
+router.post("/deposit/history", auth, async (req, res) => {
+  const userId = req.user.id;
+  const { ticker, limit = 50 } = req.body;
+    try {
+    const [rows] = await pool.query(`
+      SELECT * FROM exchange_deposits WHERE user_id = ? ORDER BY created_at DESC LIMIT ?`, 
+      [userId, Number(limit)]
+    );
+
+    return res.json({ history: rows });
+
+  } catch (err) {
+    console.error(err);
+    return res.status(500).json({ error: "Error fetching history with deposits" });
+  }
+});
+
 router.post("/deposit/mock", auth, async (req, res) => {
   const conn = await pool.getConnection();
   const userId = req.user.id;
@@ -300,9 +317,9 @@ router.get("/balances", auth, async (req, res) => {
 
     const balances = rows.map(b => ({
       asset: b.asset,
-      available: Number(b.available),
-      locked: Number(b.locked),
-      total: Number(b.total)
+      available: String(b.available),
+      locked: String(b.locked),
+      total: String(b.total)
     }));
 
     return res.json({ balances });
@@ -342,9 +359,9 @@ router.get("/balance", auth, async (req, res) => {
 
     return res.json({
       asset: b.asset,
-      available: Number(b.available),
-      locked: Number(b.locked),
-      total: Number(b.total)
+      available: String(b.available),
+      locked: String(b.locked),
+      total: String(b.total)
     });
 
   } catch (err) {
@@ -604,6 +621,23 @@ router.post("/withdraw", auth, async (req, res) => {
   } finally {
 
     conn.release();
+  }
+});
+
+router.post("/withdraw/history", auth, async (req, res) => {
+  const userId = req.user.id;
+  const { ticker, limit = 50 } = req.body;
+    try {
+    const [rows] = await pool.query(`
+      SELECT * FROM exchange_withdrawals WHERE user_id = ? ORDER BY created_at DESC LIMIT ?`, 
+      [userId, Number(limit)]
+    );
+
+    return res.json({ history: rows });
+
+  } catch (err) {
+    console.error(err);
+    return res.status(500).json({ error: "Error fetching history with withdrawals" });
   }
 });
 
