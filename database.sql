@@ -216,6 +216,7 @@ CREATE TABLE exchange_markets (
   maker_fee DECIMAL(10,6) DEFAULT 0.02,
   taker_fee DECIMAL(10,6) DEFAULT 0.02,
   min_order_size DECIMAL(36,18) DEFAULT 0,
+  min_order_price DECIMAL(36,18) DEFAULT 0,
   price_precision INT DEFAULT 8,
   amount_precision INT DEFAULT 8,
   bid_price DECIMAL(36,18) DEFAULT 0,

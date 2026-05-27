@@ -46,6 +46,14 @@ router.post("/", auth, async (req, res) => {
     return res.status(400).json({ error: "Invalid amount" });
   }
 
+  if (Number(amount) < Number(market[0].min_order_size)) {
+    return res.status(400).json({error: `Minimum Amount is ${Number(market[0].min_order_size).toFixed(market[0].amount_precision)}`});
+  }
+
+  if (Number(price) < market[0].min_order_price) {
+    return res.status(400).json({error: "Minimum Price is " + Number(market[0].min_order_price).toFixed(market[0].price_precision)});
+  }
+
   if (type === "limit" && Number(price) <= 0) {
     return res.status(400).json({ error: "Invalid price" });
   }
