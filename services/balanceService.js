@@ -61,7 +61,7 @@ module.exports = (pool) => {
       [amount, amount, userId, asset]
     );
 
-    await createTransaction(conn, userId, asset, "lock", amount);
+    await createTransaction(conn, userId, asset, "lock", amount, "Lock Balance For Order", "Lock Balance For Order");
 
   }
 
@@ -103,7 +103,7 @@ module.exports = (pool) => {
     [amount, amount, userId, asset]
   );
 
-  await createTransaction(conn, userId, asset, "unlock", amount);
+  await createTransaction(conn, userId, asset, "unlock", amount, "Unlock Balance For Cancel Order", "Unlock Balance For Cancel Order");
 }
 
 async function increaseBalance(conn, userId, asset, amount) {
@@ -122,7 +122,7 @@ async function increaseBalance(conn, userId, asset, amount) {
     ]
   );
 
-  await createTransaction(conn, userId, asset, "deposit", amount);
+  await createTransaction(conn, userId, asset, "deposit", amount, "Deposit Internal", "Deposit Internal");
 }
 
 async function decreaseLockedBalance(

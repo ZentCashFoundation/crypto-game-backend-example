@@ -14,8 +14,26 @@ module.exports = (pool, marketStatsService) => {
       const stats =
         await marketStatsService.compute24hStats(pair);
 
-      if (!stats) continue;
+      // Si no hay trades en 24h,
+      // reseteamos solo estadísticas 24h
+      // pero conservamos last_price
+      if (!stats) {
 
+        await pool.query(`
+          UPDATE exchange_markets
+          SET
+            volume_24h = 0,
+            high_24h = 0,
+            low_24h = 0,
+            variation_24h = 0
+          WHERE pair = ?
+        `, [pair]);
+
+        continue;
+      }
+
+      // Si hay trades recientes,
+      // actualizamos todas las métricas
       await pool.query(`
         UPDATE exchange_markets
         SET

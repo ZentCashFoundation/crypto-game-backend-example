@@ -21,7 +21,8 @@ router.get("/getlist", async (req, res) => {
           deposit_enabled,
           withdraw_enabled,
           maintenance_mode,
-          icon_url
+          icon_url,
+          explorer_tx_url
         FROM exchange_assets
         ORDER BY ticker ASC
         `
