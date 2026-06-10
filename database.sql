@@ -106,7 +106,7 @@ CREATE TABLE IF NOT EXISTS exchange_assets (
   maintenance_mode TINYINT(1) DEFAULT 0,
   min_deposit DECIMAL(36,18) DEFAULT 0,
   min_withdraw DECIMAL(36,18) DEFAULT 0,
-  withdraw_fee DECIMAL(36,18) DEFAULT 0;
+  withdraw_fee DECIMAL(36,18) DEFAULT 0,
   usd_value VARCHAR(255) DEFAULT 0,
   icon_url VARCHAR(255) DEFAULT NULL,
   website VARCHAR(255) DEFAULT NULL,
