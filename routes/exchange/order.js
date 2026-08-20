@@ -58,6 +58,52 @@ router.post("/", auth, async (req, res) => {
     return res.status(400).json({ error: "Invalid price" });
   }
 
+  if (type === "limit") {
+
+    let query;
+    let params;
+
+    if (side === "buy") {
+
+      query = `
+        SELECT id
+        FROM exchange_orders
+        WHERE user_id = ?
+          AND pair = ?
+          AND side = 'sell'
+          AND status IN ('open', 'partial')
+          AND price <= ?
+        LIMIT 1
+      `;
+
+      params = [userId, pair, price];
+
+    } else {
+
+      query = `
+        SELECT id
+        FROM exchange_orders
+        WHERE user_id = ?
+          AND pair = ?
+          AND side = 'buy'
+          AND status IN ('open', 'partial')
+          AND price >= ?
+        LIMIT 1
+      `;
+
+      params = [userId, pair, price];
+
+    }
+
+    const [crossOrder] = await pool.query(query, params);
+
+    if (crossOrder.length) {
+      return res.status(400).json({
+        error: "This order would cross one of your existing orders"
+      });
+    }
+  }
+
   const conn = await pool.getConnection();
 
   try {
@@ -286,6 +332,91 @@ router.get("/", auth, async (req, res) => {
   } catch (err) {
     console.error(err);
     return res.status(500).json({ error: "Error fetching orders" });
+  }
+});
+
+router.delete("/", auth, async (req, res) => {
+  const userId = req.user.id;
+  const { pair } = req.query;
+
+  const conn = await pool.getConnection();
+
+  try {
+    await conn.beginTransaction();
+
+    let sql = `
+      SELECT *
+      FROM exchange_orders
+      WHERE user_id = ?
+      AND status IN ('open', 'partial')
+    `;
+
+    const params = [userId];
+
+    if (pair) {
+      sql += ` AND pair = ?`;
+      params.push(pair);
+    }
+
+    sql += ` FOR UPDATE`;
+
+    const [orders] = await conn.query(sql, params);
+
+    if (!orders.length) {
+      throw new Error("No open orders found");
+    }
+
+    for (const order of orders) {
+      const [baseAsset, quoteAsset] = order.pair.split("_");
+
+      const remaining =
+        Number(order.amount) - Number(order.filled);
+
+      if (remaining <= 0) continue;
+
+      if (order.side === "sell") {
+        await balanceService.unlockBalance(
+          conn,
+          userId,
+          baseAsset,
+          remaining
+        );
+      } else {
+        await balanceService.unlockBalance(
+          conn,
+          userId,
+          quoteAsset,
+          remaining * Number(order.price)
+        );
+      }
+    }
+
+    const orderIds = orders.map(o => o.id);
+
+    await conn.query(
+      `
+      UPDATE exchange_orders
+      SET status = 'cancelled'
+      WHERE id IN (?)
+      `,
+      [orderIds]
+    );
+
+    await conn.commit();
+
+    res.json({
+      success: true,
+      cancelled: orders.length,
+      pair: pair || null
+    });
+
+  } catch (err) {
+    await conn.rollback();
+    res.status(400).json({
+      error: err.message
+    });
+  } finally {
+    conn.release();
   }
 });
 

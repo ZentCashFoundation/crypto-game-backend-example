@@ -180,6 +180,89 @@ router.post("/deposit", auth, async (req, res) => {
       };
     }
 
+    if (asset.type === "ZANONOTE") {
+
+      const paymentId = textAHex(
+          `${userId} - ${ticker}`
+      );
+
+      console.log(paymentId);
+
+      let rpcUrl = asset.rpc_url;
+
+      if (!rpcUrl.startsWith("http://") && !rpcUrl.startsWith("https://")) {
+          rpcUrl = "http://" + rpcUrl;
+      }
+
+      const response_part_one = await fetch(
+          rpcUrl + "/json_rpc",
+          {
+              method: "POST",
+              headers: {
+                  "Content-Type": "application/json",
+              },
+              body: JSON.stringify({
+                  jsonrpc: "2.0",
+                  id: 0,
+                  method: "getaddress",
+                  params: {}
+              }),
+              signal: AbortSignal.timeout(5000)
+          }
+      );
+
+      const data_one = await response_part_one.json();
+
+      if (
+          !response_part_one.ok ||
+          !data_one.result ||
+          !data_one.result.address
+      ) {
+          return res.status(500).json({
+              error: "RPC error generating address"
+          });
+      }
+
+      const response_part_two = await fetch(
+          rpcUrl + "/json_rpc",
+          {
+              method: "POST",
+              headers: {
+                  "Content-Type": "application/json",
+              },
+              body: JSON.stringify({
+                  jsonrpc: "2.0",
+                  id: 0,
+                  method: "make_integrated_address",
+                  params: {
+                    payment_id: paymentId
+                  }
+              }),
+              signal: AbortSignal.timeout(5000)
+          }
+      );
+
+      const data_two = await response_part_two.json();
+      console.log(JSON.stringify(data_two, null, 2));
+      if (
+        !response_part_two.ok ||
+        !data_two.result ||
+        !data_two.result.integrated_address
+      ) {
+          return res.status(500).json({
+              error: "RPC error generating integrated address"
+          });
+      }
+
+      wallet = {
+          address: data_one.result.address,
+          account: null,
+          payment_id: paymentId,
+          integrated_address: data_two.result.integrated_address,
+          memo: null
+      };
+    }    
+
     if (!wallet) {
       return res.status(500).json({ error: "Wallet generation failed" });
     }
@@ -247,7 +330,22 @@ function formatWallet(asset, wallet) {
     };
   }
 
+    if (asset.type === "ZANONOTE") {
+    return {
+      address: wallet.address,
+      payment_id: wallet.payment_id,
+      integrated_address: wallet.integrated_address
+    };
+  }
+
   return { address: wallet.address };
+}
+
+/* Convierte texto a hexadecimal */
+function textAHex(text) {
+    return Array.from(new TextEncoder().encode(text))
+        .map(byte => byte.toString(16).padStart(2, '0'))
+        .join('');
 }
 
 router.post("/deposit/history", auth, async (req, res) => {

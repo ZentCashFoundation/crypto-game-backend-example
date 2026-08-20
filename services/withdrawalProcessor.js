@@ -1028,6 +1028,390 @@ async function processTurtleNoteWithdrawals(asset) {
   }
 }
 
+async function processZanoNoteWithdrawals(asset) {
+
+  let rpcUrl = asset.rpc_url;
+
+  if (
+    !rpcUrl.startsWith("http://") &&
+    !rpcUrl.startsWith("https://")
+  ) {
+    rpcUrl = "http://" + rpcUrl;
+  }
+
+  // -----------------------------------------
+  // LOAD PENDING WITHDRAWALS
+  // -----------------------------------------
+  const [withdrawals] = await pool.query(
+    `
+    SELECT *
+    FROM exchange_withdrawals
+    WHERE asset_ticker = ?
+      AND status = 'pending'
+    ORDER BY id ASC
+    LIMIT 25
+    `,
+    [asset.ticker]
+  );
+
+  if (!withdrawals.length) {
+    return;
+  }
+
+  // -----------------------------------------
+  // PROCESS WITHDRAWALS
+  // -----------------------------------------
+  for (const withdrawal of withdrawals) {
+
+    const conn = await pool.getConnection();
+
+    try {
+
+      await conn.beginTransaction();
+
+      // -----------------------------------------
+      // LOCK WITHDRAWAL
+      // -----------------------------------------
+      const [rows] = await conn.query(
+        `
+        SELECT *
+        FROM exchange_withdrawals
+        WHERE id = ?
+        FOR UPDATE
+        `,
+        [withdrawal.id]
+      );
+
+      if (!rows.length) {
+
+        await conn.rollback();
+
+        continue;
+      }
+
+      const dbWithdrawal = rows[0];
+
+      if (dbWithdrawal.status !== "pending") {
+
+        await conn.rollback();
+
+        continue;
+      }
+
+      // -----------------------------------------
+      // LOAD USER WALLET
+      // -----------------------------------------
+      const [walletRows] = await conn.query(
+        `
+        SELECT *
+        FROM exchange_wallets
+        WHERE user_id = ?
+          AND asset_ticker = ?
+        LIMIT 1
+        `,
+        [
+          dbWithdrawal.user_id,
+          dbWithdrawal.asset_ticker
+        ]
+      );
+
+      if (!walletRows.length) {
+
+        const totalLocked =
+          Number(dbWithdrawal.amount) +
+          Number(dbWithdrawal.fee || 0);
+
+        // unlock balance
+        await conn.query(
+          `
+          UPDATE exchange_balances
+          SET
+            available = available + ?,
+            locked = locked - ?
+          WHERE user_id = ?
+            AND asset_ticker = ?
+          `,
+          [
+            totalLocked,
+            totalLocked,
+            dbWithdrawal.user_id,
+            dbWithdrawal.asset_ticker
+          ]
+        );
+
+        await balanceService.createTransaction(
+          conn,
+          dbWithdrawal.user_id,
+          dbWithdrawal.asset_ticker,
+          "unlock",
+          totalLocked,
+          dbWithdrawal.id,
+          "Withdrawal failed - funds unlocked"
+        );
+
+        await conn.query(
+          `
+          UPDATE exchange_withdrawals
+          SET
+            status = 'failed',
+            error_message = 'User wallet not found'
+          WHERE id = ?
+          `,
+          [dbWithdrawal.id]
+        );
+
+        await conn.commit();
+
+        continue;
+      }
+
+      const userWallet = walletRows[0];
+
+      // -----------------------------------------
+      // SET PROCESSING
+      // -----------------------------------------
+      await conn.query(
+        `
+        UPDATE exchange_withdrawals
+        SET status = 'processing'
+        WHERE id = ?
+        `,
+        [dbWithdrawal.id]
+      );
+
+      // -----------------------------------------
+      // PREPARE AMOUNT
+      // -----------------------------------------
+      const atomicAmount = Math.floor(
+        Number(dbWithdrawal.amount) *
+        Math.pow(10, asset.decimals)
+      );
+
+      // -----------------------------------------
+      // BUILD RPC BODY
+      // -----------------------------------------
+      const rpcBody = {
+        jsonrpc: "2.0",
+        id: "0",
+        method: "transfer",
+        params: {
+          destinations: [
+            {
+              address: dbWithdrawal.address,
+              amount: atomicAmount
+            }
+          ],
+          fee: 1000000,
+          mixin: 3,
+        }
+      };
+
+      // optional payment id
+      if (dbWithdrawal.payment_id) {
+        rpcBody.params.payment_id =
+          dbWithdrawal.payment_id;
+      }
+
+      console.log(
+        "[ZANONOTE RPC REQUEST]",
+        JSON.stringify(rpcBody, null, 2)
+      );
+
+      // -----------------------------------------
+      // SEND TRANSACTION
+      // -----------------------------------------
+      const response = await fetch(
+        rpcUrl + "/json_rpc",
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json"
+          },
+          body: JSON.stringify(rpcBody),
+          signal: AbortSignal.timeout(120000)
+        }
+      );
+
+      console.log(
+        "[ZANONOTE HTTP STATUS]",
+        response.status
+      );
+
+      let data = {};
+
+      try {
+
+        data = await response.json();
+
+      } catch (err) {
+
+        console.error(
+          "[INVALID ZANONOTE JSON RESPONSE]"
+        );
+      }
+
+      console.log(
+        "[ZANONOTE RPC RESPONSE]",
+        JSON.stringify(data, null, 2)
+      );
+
+      // -----------------------------------------
+      // RPC ERROR
+      // -----------------------------------------
+      if (
+        !response.ok ||
+        data.error
+      ) {
+
+        const errorMessage =
+          data.error?.message ||
+          JSON.stringify(data);
+
+        const totalLocked =
+          Number(dbWithdrawal.amount) +
+          Number(dbWithdrawal.fee || 0);
+
+        // unlock balance
+        await conn.query(
+          `
+          UPDATE exchange_balances
+          SET
+            available = available + ?,
+            locked = locked - ?
+          WHERE user_id = ?
+            AND asset_ticker = ?
+          `,
+          [
+            totalLocked,
+            totalLocked,
+            dbWithdrawal.user_id,
+            dbWithdrawal.asset_ticker
+          ]
+        );
+
+        await balanceService.createTransaction(
+          conn,
+          dbWithdrawal.user_id,
+          dbWithdrawal.asset_ticker,
+          "unlock",
+          totalLocked,
+          dbWithdrawal.id,
+          "Withdrawal failed - funds unlocked"
+        );
+
+        await conn.query(
+          `
+          UPDATE exchange_withdrawals
+          SET
+            status = 'failed',
+            error_message = ?
+          WHERE id = ?
+          `,
+          [
+            errorMessage,
+            dbWithdrawal.id
+          ]
+        );
+
+        await conn.commit();
+
+        console.error(
+          `[ZANONOTE WITHDRAW FAILED] ${asset.ticker}`,
+          errorMessage
+        );
+
+        continue;
+      }
+
+      // -----------------------------------------
+      // TX HASH
+      // -----------------------------------------
+      const txHash =
+        data.result?.tx_hash ||
+        data.result?.tx_hash_list?.[0];
+
+      if (!txHash) {
+
+        throw new Error(
+          "No transaction hash returned"
+        );
+      }
+
+      // -----------------------------------------
+      // REMOVE LOCKED BALANCE
+      // -----------------------------------------
+      const totalLocked =
+        Number(dbWithdrawal.amount) +
+        Number(dbWithdrawal.fee || 0);
+
+      await conn.query(
+        `
+        UPDATE exchange_balances
+        SET
+          locked = locked - ?
+        WHERE user_id = ?
+          AND asset_ticker = ?
+        `,
+        [
+          totalLocked,
+          dbWithdrawal.user_id,
+          dbWithdrawal.asset_ticker
+        ]
+      );
+
+      // -----------------------------------------
+      // UPDATE WITHDRAWAL
+      // -----------------------------------------
+      await conn.query(
+        `
+        UPDATE exchange_withdrawals
+        SET
+          status = 'broadcasted',
+          tx_hash = ?,
+          processed_at = NOW()
+        WHERE id = ?
+        `,
+        [
+          txHash,
+          dbWithdrawal.id
+        ]
+      );
+
+      // -----------------------------------------
+      // CREATE TRANSACTION LOG
+      // -----------------------------------------
+      await balanceService.createTransaction(
+        conn,
+        dbWithdrawal.user_id,
+        dbWithdrawal.asset_ticker,
+        "withdraw",
+        totalLocked,
+        txHash,
+        "Zanonote withdrawal"
+      );
+
+      await conn.commit();
+
+      console.log(
+        `[ZANONOTE WITHDRAW BROADCASTED] ${asset.ticker} ${dbWithdrawal.amount} sent for user ${dbWithdrawal.user_id}`
+      );
+
+    } catch (err) {
+
+      await conn.rollback();
+
+      console.error(
+        `[ZANONOTE WITHDRAW PROCESSOR ERROR] ${asset.ticker}`,
+        err
+      );
+
+    } finally {
+
+      conn.release();
+    }
+  }
+}
+
   async function processWithdrawals() {
 
     const [assets] = await pool.query(
@@ -1053,6 +1437,10 @@ async function processTurtleNoteWithdrawals(asset) {
 
         if (asset.type === "TURTLENOTE") {
           await processTurtleNoteWithdrawals(asset);
+        }
+
+        if (asset.type === "ZANONOTE") {
+          await processZanoNoteWithdrawals(asset);
         }
 
       } catch (err) {
