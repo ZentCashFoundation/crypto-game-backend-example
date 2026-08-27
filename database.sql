@@ -312,6 +312,50 @@ CREATE TABLE IF NOT EXISTS exchange_candles (
   INDEX idx_pair_timeframe (pair, timeframe, open_time)
 );
 
+/* This table store the exchange listing assets */ 
+CREATE TABLE IF NOT EXISTS exchange_listing_assets (
+  ticker VARCHAR(20) PRIMARY KEY,
+  name VARCHAR(50) NOT NULL,
+  type ENUM('UTXO','ACCOUNT','CRYPTONOTE','FORKNOTE','TURTLENOTE','ZANONOTE') NOT NULL,
+  decimals INT NOT NULL,
+  contract_address VARCHAR(255) DEFAULT NULL,
+  requires_memo BOOLEAN NOT NULL,
+  confirmations_required INT NOT NULL,
+  explorer_url VARCHAR(255) NOT NULL,
+  explorer_tx_url VARCHAR(255) DEFAULT NULL,
+  explorer_address_url VARCHAR(255) DEFAULT NULL,
+  network_fee DECIMAL(36,18) NOT NULL,
+  icon_url VARCHAR(255) NOT NULL,
+  website VARCHAR(255) NOT NULL,
+  coinmarketcap VARCHAR(255) DEFAULT NULL,
+  coingecko VARCHAR(255) DEFAULT NULL,
+  github VARCHAR(255) NOT NULL,
+  payment_address_per_listing VARCHAR(255) NOT NULL,
+  total_revenue DECIMAL(36,18) NOT NULL,
+  total_outstanding DECIMAL(36,18) NOT NULL,
+  total_cost DECIMAL(36,18) NOT NULL,
+  status VARCHAR(128) NOT NULL,
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+);
+
+/* This table store login attempts */
+CREATE TABLE IF NOT EXISTS login_attempts (
+  id BIGINT AUTO_INCREMENT PRIMARY KEY,
+  user_id INT DEFAULT NULL,
+  identifier VARCHAR(255) NOT NULL,
+  success BOOLEAN NOT NULL DEFAULT 0,
+  failure_reason ENUM('invalid_credentials', 'user_not_found', 'account_inactive', 'account_deleted', 'account_locked', 'too_many_attempts', 'other') DEFAULT NULL,
+  ip_address VARCHAR(128) DEFAULT NULL,
+  user_agent VARCHAR(512) DEFAULT NULL,
+  created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  INDEX idx_login_user (user_id, created_at),
+  INDEX idx_login_identifier (identifier, created_at),
+  INDEX idx_login_ip (ip_address, created_at),
+  INDEX idx_login_created (created_at),
+  FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE SET NULL
+);
+
 /* Insert assets */
 INSERT INTO exchange_assets (ticker, name, type) VALUES
 ('BTC', 'Bitcoin', 'UTXO'),

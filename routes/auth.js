@@ -114,24 +114,59 @@ router.post("/register", async (req, res) => {
 router.post("/login", async (req, res) => {
   const { email, password } = req.body;
 
+  const ip = req.ip;
+  const userAgent = req.get("User-Agent") || null;
+
   try {
     const [users] = await pool.query(
       "SELECT id, email, username, password, active FROM users WHERE email = ?",
       [email]
     );
 
-    if (!users.length)
+    if (!users.length) {
+      await pool.query(
+        `INSERT INTO login_attempts
+          (user_id, identifier, success, failure_reason, ip_address, user_agent)
+         VALUES (?, ?, ?, ?, ?, ?)`,
+        [null, email, false, "user_not_found", ip, userAgent]
+      );
+
       return res.status(400).json({ error: "Invalid credentials" });
+    }
 
     const user = users[0];
 
-    if (user.active === 0)
+    if (user.active === 0) {
+      await pool.query(
+        `INSERT INTO login_attempts
+          (user_id, identifier, success, failure_reason, ip_address, user_agent)
+         VALUES (?, ?, ?, ?, ?, ?)`,
+        [user.id, email, false, "account_inactive", ip, userAgent]
+      );
+
       return res.status(403).json({ error: "Account disabled" });
+    }
 
     const valid = await bcrypt.compare(password, user.password);
 
-    if (!valid)
+    if (!valid) {
+      await pool.query(
+        `INSERT INTO login_attempts
+          (user_id, identifier, success, failure_reason, ip_address, user_agent)
+         VALUES (?, ?, ?, ?, ?, ?)`,
+        [user.id, email, false, "invalid_credentials", ip, userAgent]
+      );
+
       return res.status(400).json({ error: "Invalid credentials" });
+    }
+
+    // Login correcto
+    await pool.query(
+      `INSERT INTO login_attempts
+        (user_id, identifier, success, ip_address, user_agent)
+       VALUES (?, ?, ?, ?, ?)`,
+      [user.id, email, true, ip, userAgent]
+    );
 
     const token = jwt.sign(
       { id: user.id, email: user.email },
@@ -139,7 +174,9 @@ router.post("/login", async (req, res) => {
       { expiresIn: "2h" }
     );
 
-    console.log(chalk.blue.bold("Login User. Email: " + email))
+    console.log(
+      chalk.blue.bold("Login User. Email: " + email)
+    );
 
     res.json({
       id: user.id,
@@ -147,6 +184,7 @@ router.post("/login", async (req, res) => {
       username: user.username,
       token
     });
+
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: "Internal error" });

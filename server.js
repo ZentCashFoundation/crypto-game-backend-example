@@ -20,12 +20,13 @@ const exchangewalletRoutes = require("./routes/exchange/wallet");
 const orderRoutes = require("./routes/exchange/order");
 const tradeRoutes = require("./routes/exchange/trade");
 const auditRoutes = require("./routes/exchange/audit");
+const listingRoutes = require("./routes/exchange/listing");
 const candleFillerService = require("./services/candleFillerService")();
 const marketStatsService = require("./services/marketStatsService")(pool);
 const marketUpdater =  require("./services/marketUpdater")(pool, marketStatsService);
 
 const app = express();
-
+app.set("trust proxy", 1);
 app.use(cors());
 app.use(express.json());
 
@@ -39,6 +40,7 @@ app.use("/api/exchange/wallet", exchangewalletRoutes);
 app.use("/api/exchange/order", orderRoutes);
 app.use("/api/exchange/trade", tradeRoutes);
 app.use("/api/exchange/audit", auditRoutes);
+app.use("/api/exchange/listing", listingRoutes);
 
 app.get("/", (req, res) => {
   res.json({ message: "Crypto Game Backend Example API Running" });
@@ -126,3 +128,9 @@ setInterval(() => {
     .catch(console.error);
 
 }, 10000);
+
+const listingWatcher = require("./services/listingWatcher")(pool);
+
+setInterval(() => {
+  listingWatcher.scanListingPayments();
+}, 3000); 
